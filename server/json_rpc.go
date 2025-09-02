@@ -62,7 +62,7 @@ func StartJSONRPC(
 	allowUnprotectedTxs := config.JSONRPC.AllowUnprotectedTxs
 	rpcAPIArr := config.JSONRPC.API
 
-	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool)
+	apis := rpc.GetRPCAPIs(srvCtx, clientCtx, stream, allowUnprotectedTxs, indexer, rpcAPIArr, mempool, config.JSONRPC.FeePayerPrivKey, config.JSONRPC.CustomFeeResponse)
 
 	for _, api := range apis {
 		if err := rpcServer.RegisterName(api.Namespace, api.Service); err != nil {

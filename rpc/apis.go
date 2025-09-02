@@ -49,6 +49,8 @@ type APICreator = func(
 	allowUnprotectedTxs bool,
 	indexer servertypes.EVMTxIndexer,
 	mempool *evmmempool.ExperimentalEVMMempool,
+	feePayerPrivKey string,
+	customFeeResponse bool,
 ) []rpc.API
 
 // apiCreators defines the JSON-RPC API namespaces.
@@ -62,8 +64,13 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			feePayerPrivKey string,
+			customFeeResponse bool,
 		) []rpc.API {
 			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
+			if feePayerPrivKey != "" {
+				evmBackend.AddFeePayer(feePayerPrivKey)
+			}
 			return []rpc.API{
 				{
 					Namespace: EthNamespace,
@@ -79,7 +86,7 @@ func init() {
 				},
 			}
 		},
-		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, servertypes.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool) []rpc.API {
+		Web3Namespace: func(*server.Context, client.Context, *stream.RPCStream, bool, servertypes.EVMTxIndexer, *evmmempool.ExperimentalEVMMempool, string, bool) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: Web3Namespace,
@@ -89,7 +96,7 @@ func init() {
 				},
 			}
 		},
-		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ servertypes.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool) []rpc.API {
+		NetNamespace: func(ctx *server.Context, clientCtx client.Context, _ *stream.RPCStream, _ bool, _ servertypes.EVMTxIndexer, _ *evmmempool.ExperimentalEVMMempool, _ string, _ bool) []rpc.API {
 			return []rpc.API{
 				{
 					Namespace: NetNamespace,
@@ -105,6 +112,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			_ string,
+			_ bool,
 		) []rpc.API {
 			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
@@ -122,7 +131,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
-		) []rpc.API {
+			_ string,
+			_ bool) []rpc.API {
 			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
 				{
@@ -139,6 +149,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			_ string,
+			_ bool,
 		) []rpc.API {
 			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
@@ -156,6 +168,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer servertypes.EVMTxIndexer,
 			mempool *evmmempool.ExperimentalEVMMempool,
+			_ string,
+			_ bool,
 		) []rpc.API {
 			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer, mempool)
 			return []rpc.API{
@@ -178,12 +192,14 @@ func GetRPCAPIs(ctx *server.Context,
 	indexer servertypes.EVMTxIndexer,
 	selectedAPIs []string,
 	mempool *evmmempool.ExperimentalEVMMempool,
+	feePayerPrivKey string,
+	customFeeResponse bool,
 ) []rpc.API {
 	var apis []rpc.API
 
 	for _, ns := range selectedAPIs {
 		if creator, ok := apiCreators[ns]; ok {
-			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool)...)
+			apis = append(apis, creator(ctx, clientCtx, stream, allowUnprotectedTxs, indexer, mempool, feePayerPrivKey, customFeeResponse)...)
 		} else {
 			ctx.Logger.Error("invalid namespace value", "namespace", ns)
 		}
