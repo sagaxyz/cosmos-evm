@@ -166,6 +166,7 @@ type Backend struct {
 	AllowUnprotectedTxs bool
 	Indexer             cosmosevmtypes.EVMTxIndexer
 	ProcessBlocker      ProcessBlocker
+	feePayer            *feePayer
 }
 
 func (b *Backend) GetConfig() config.Config {
@@ -203,4 +204,22 @@ func NewBackend(
 	}
 	b.ProcessBlocker = b.ProcessBlock
 	return b
+}
+
+func (b *Backend) AddFeePayer(feePayerPrivKey string) error {
+	if feePayerPrivKey == "" {
+		panic("empty fp private key")
+	}
+	if b.feePayer != nil {
+		panic("fee payer already added")
+	}
+
+	var err error
+	b.feePayer, err = newFeePayer(b.Ctx, b.ClientCtx, b.QueryClient, b.Logger, feePayerPrivKey)
+	if err != nil {
+		return err
+	}
+	go b.feePayer.Worker()
+
+	return nil
 }
