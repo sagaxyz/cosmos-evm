@@ -184,6 +184,7 @@ func (s *EvmUnitAnteTestSuite) TestCanTransfer() {
 				unitNetwork.GetContext(),
 				unitNetwork.App.GetEVMKeeper(),
 				*coreMsg,
+				coreMsg.GasFeeCap,
 				baseFeeResp.BaseFee.BigInt(),
 				evmParams.Params,
 				tc.isLondon,
