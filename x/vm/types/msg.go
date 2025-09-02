@@ -168,7 +168,6 @@ func (msg *MsgEthereumTx) GetSenderLegacy(signer ethtypes.Signer) (common.Addres
 	if err != nil {
 		return common.Address{}, err
 	}
-	msg.From = sender.Bytes()
 	return sender, nil
 }
 
