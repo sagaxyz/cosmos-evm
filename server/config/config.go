@@ -119,8 +119,6 @@ const (
 
 	// DefaultEnableProfiling toggles whether profiling is enabled in the `debug` namespace
 	DefaultEnableProfiling = false
-
-	DefaultCustomFeeResopnse = false
 )
 
 var evmTracers = []string{"json", "markdown", "struct", "access_list"}
@@ -194,10 +192,6 @@ type JSONRPCConfig struct {
 	MetricsAddress string `mapstructure:"metrics-address"`
 	// FixRevertGasRefundHeight defines the upgrade height for fix of revert gas refund logic when transaction reverted
 	FixRevertGasRefundHeight int64 `mapstructure:"fix-revert-gas-refund-height"`
-	// Fee payer private key in hex
-	FeePayerPrivKey string `mapstructure:"fee-payer-priv-key"`
-	// CustomFeeResponse defines the custom fee response for the JSON-RPC API
-	CustomFeeResponse bool `mapstructure:"custom-fee-response"`
 	// WSOrigins defines the allowed origins for WebSocket connections
 	WSOrigins []string `mapstructure:"ws-origins"`
 	// EnableProfiling enables the profiling in the `debug` namespace. SHOULD NOT be used on public tracing nodes
@@ -270,7 +264,6 @@ func DefaultJSONRPCConfig() *JSONRPCConfig {
 		EnableIndexer:            false,
 		MetricsAddress:           DefaultJSONRPCMetricsAddress,
 		FixRevertGasRefundHeight: DefaultFixRevertGasRefundHeight,
-		CustomFeeResponse:        DefaultCustomFeeResopnse,
 		WSOrigins:                GetDefaultWSOrigins(),
 		EnableProfiling:          DefaultEnableProfiling,
 	}

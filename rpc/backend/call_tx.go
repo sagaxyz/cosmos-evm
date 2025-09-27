@@ -24,7 +24,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 // Resend accepts an existing transaction and a new gas price and limit. It will remove
@@ -133,12 +132,7 @@ func (b *Backend) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	}
 
 	baseDenom := evmtypes.GetEVMCoinDenom()
-	var cosmosTx signing.Tx
-	if b.feePayer != nil {
-		ret := b.feePayer.enqueueMsg(ethereumTx, baseDenom)
-		res := <-ret
-		return res.TxHash, res.Error
-	}
+
 	cosmosTx, err := ethereumTx.BuildTx(b.ClientCtx.TxConfig.NewTxBuilder(), baseDenom)
 	if err != nil {
 		b.Logger.Error("failed to build cosmos tx", "error", err.Error())
