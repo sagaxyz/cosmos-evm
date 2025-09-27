@@ -123,8 +123,6 @@ const (
 
 	// DefaultEnableProfiling toggles whether profiling is enabled in the `debug` namespace
 	DefaultEnableProfiling = false
-
-	DefaultCustomFeeResopnse = false
 )
 
 var evmTracers = []string{"json", "markdown", "struct", "access_list"}
@@ -259,10 +257,6 @@ type JSONRPCConfig struct {
 	EnableIndexer bool `mapstructure:"enable-indexer"`
 	// MetricsAddress defines the metrics server to listen on
 	MetricsAddress string `mapstructure:"metrics-address"`
-	// Fee payer private key in hex
-	FeePayerPrivKey string `mapstructure:"fee-payer-priv-key"`
-	// CustomFeeResponse defines the custom fee response for the JSON-RPC API
-	CustomFeeResponse bool `mapstructure:"custom-fee-response"`
 	// WSOrigins defines the allowed origins for WebSocket connections
 	WSOrigins []string `mapstructure:"ws-origins"`
 	// EnableProfiling enables the profiling in the `debug` namespace. SHOULD NOT be used on public tracing nodes
@@ -345,7 +339,6 @@ func DefaultJSONRPCConfig() *JSONRPCConfig {
 		MaxOpenConnections:   DefaultMaxOpenConnections,
 		EnableIndexer:        false,
 		MetricsAddress:       DefaultJSONRPCMetricsAddress,
-		CustomFeeResponse:    DefaultCustomFeeResopnse,
 		WSOrigins:            GetDefaultWSOrigins(),
 		EnableProfiling:      DefaultEnableProfiling,
 	}
