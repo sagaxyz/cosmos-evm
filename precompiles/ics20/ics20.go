@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -37,6 +38,7 @@ type Precompile struct {
 	transferKeeper transferkeeper.Keeper
 	channelKeeper  *channelkeeper.Keeper
 	evmKeeper      *evmkeeper.Keeper
+	erc20Keeper    *erc20keeper.Keeper
 }
 
 // NewPrecompile creates a new ICS-20 Precompile instance as a
@@ -47,6 +49,7 @@ func NewPrecompile(
 	transferKeeper transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
+	erc20Keeper *erc20keeper.Keeper,
 ) (*Precompile, error) {
 	newAbi, err := cmn.LoadABI(f, "abi.json")
 	if err != nil {
@@ -64,6 +67,7 @@ func NewPrecompile(
 		channelKeeper:  channelKeeper,
 		stakingKeeper:  stakingKeeper,
 		evmKeeper:      evmKeeper,
+		erc20Keeper:    erc20Keeper,
 	}
 
 	// SetAddress defines the address of the ICS-20 compile contract.

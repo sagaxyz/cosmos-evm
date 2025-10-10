@@ -1,6 +1,8 @@
 package ics20
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -14,6 +16,9 @@ import (
 const (
 	// EventTypeIBCTransfer defines the event type for the ICS20 Transfer transaction.
 	EventTypeIBCTransfer = "IBCTransfer"
+
+	// TransferEventSignature is the signature of the Transfer event (ERC20)
+	TransferEventSignature = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 )
 
 // EmitIBCTransferEvent creates a new IBC transfer event emitted on a Transfer transaction.
@@ -56,6 +61,47 @@ func EmitIBCTransferEvent(
 		Topics:      topics,
 		Data:        packed,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
+	})
+
+	return nil
+}
+
+// EmitTransferEvent creates a new Transfer event emitted (ERC20). In order to show the IBC transfer in the block explorer.
+func EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, precompileAddr, from, to common.Address, value *big.Int) error {
+	// Prepare the event topics
+	topics := make([]common.Hash, 3)
+
+	// The first topic is always the signature of the event.
+	topics[0] = common.HexToHash(TransferEventSignature)
+
+	var err error
+	topics[1], err = cmn.MakeTopic(from)
+	if err != nil {
+		return err
+	}
+
+	topics[2], err = cmn.MakeTopic(to)
+	if err != nil {
+		return err
+	}
+
+	arguments := abi.Arguments{
+		{
+			Name:    "value",
+			Type:    abi.Type{T: abi.IntTy, Size: 256},
+			Indexed: false,
+		},
+	}
+	packed, err := arguments.Pack(value)
+	if err != nil {
+		return err
+	}
+
+	stateDB.AddLog(&ethtypes.Log{
+		Address:     precompileAddr,
+		Topics:      topics,
+		Data:        packed,
+		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
 	})
 
 	return nil
