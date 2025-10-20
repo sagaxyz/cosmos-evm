@@ -96,6 +96,7 @@
 
 ### BUG FIXES
 
+- [\#742](https://github.com/cosmos/evm/pull/742) Fix eth_getProof block number conversion for special block parameters (latest, pending, earliest).
 - [\#179](https://github.com/cosmos/evm/pull/179) Fix compilation error in server/start.go
 - [\#245](https://github.com/cosmos/evm/pull/245) Use PriorityMempool with signer extractor to prevent missing signers error in tx execution
 - [\#289](https://github.com/cosmos/evm/pull/289) Align revert reason format with go-ethereum (return hex-encoded result)
