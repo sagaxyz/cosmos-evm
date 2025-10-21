@@ -36,5 +36,5 @@ message Params {
   reserved 2;
   // permissionless_registration is the parameter that allows ERC20s to be
   // permissionlessly registered to be converted to bank tokens and vice versa
-  bool permissionless_registration = 5;
+  bool permissionless_registration = 5 [ (gogoproto.jsontag) = "permissionless_registration", json_name = "permissionless_registration"];
 }
