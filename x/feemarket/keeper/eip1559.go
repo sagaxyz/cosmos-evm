@@ -3,9 +3,6 @@ package keeper
 import (
 	"math"
 
-	"github.com/cosmos/evm/utils"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
-
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -57,13 +54,40 @@ func (k Keeper) CalculateBaseFee(ctx sdk.Context) sdkmath.LegacyDec {
 		return sdkmath.LegacyDec{}
 	}
 
-	factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
-	return utils.CalcGasBaseFee(
-		parentGasUsed,
-		parentGasTargetInt.Uint64(),
-		uint64(params.BaseFeeChangeDenominator),
-		parentBaseFee,
-		sdkmath.LegacyOneDec().QuoInt(factor),
-		params.MinGasPrice,
-	)
+	parentGasTarget := parentGasTargetInt.Uint64()
+	baseFeeChangeDenominator := sdkmath.NewIntFromUint64(uint64(params.BaseFeeChangeDenominator))
+
+	// If the parent gasUsed is the same as the target, the baseFee remains
+	// unchanged.
+	if parentGasUsed == parentGasTarget {
+		return parentBaseFee
+	}
+
+	if parentGasTargetInt.IsZero() {
+		return sdkmath.LegacyZeroDec()
+	}
+
+	if parentGasUsed > parentGasTarget {
+		// If the parent block used more gas than its target, the baseFee should
+		// increase.
+		gasUsedDelta := sdkmath.NewIntFromUint64(parentGasUsed - parentGasTarget)
+		x := parentBaseFee.MulInt(gasUsedDelta)
+		y := x.QuoInt(parentGasTargetInt)
+		baseFeeDelta := sdkmath.LegacyMaxDec(
+			y.QuoInt(baseFeeChangeDenominator),
+			sdkmath.LegacyOneDec(),
+		)
+
+		return parentBaseFee.Add(baseFeeDelta)
+	}
+	// Otherwise if the parent block used less gas than its target, the baseFee
+	// should decrease.
+	gasUsedDelta := sdkmath.NewIntFromUint64(parentGasTarget - parentGasUsed)
+	x := parentBaseFee.MulInt(gasUsedDelta)
+	y := x.QuoInt(parentGasTargetInt)
+	baseFeeDelta := y.QuoInt(baseFeeChangeDenominator)
+
+	// Set global min gas price as lower bound of the base fee, transactions below
+	// the min gas price don't even reach the mempool.
+	return sdkmath.LegacyMaxDec(parentBaseFee.Sub(baseFeeDelta), params.MinGasPrice)
 }
