@@ -265,7 +265,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 				// Fix the gas limit and gas price for predictable gas usage.
 				// This is for calculating expected cancellation fee.
 				baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-				baseFeeInt := baseFee.TruncateInt64()
+				var baseFeeInt int64 = 0
+				if baseFee.IsInt64() {
+					baseFeeInt = baseFee.Int64()
+				}
 				txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 				txArgs.GasLimit = 500_000
 
@@ -1249,7 +1252,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
 					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
+					var baseFeeInt int64 = 0
+					if baseFee.IsInt64() {
+						baseFeeInt = baseFee.Int64()
+					}
 					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 					txArgs.GasLimit = 500_000
 
@@ -1407,7 +1413,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
 					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
+					var baseFeeInt int64 = 0
+					if baseFee.IsInt64() {
+						baseFeeInt = baseFee.Int64()
+					}
 					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 					txArgs.GasLimit = 500_000
 
@@ -1503,7 +1512,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
 					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
+					var baseFeeInt int64 = 0
+					if baseFee.IsInt64() {
+						baseFeeInt = baseFee.Int64()
+					}
 					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(300)
@@ -1693,7 +1705,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					// Fix the gas limit and gas ice for predictable gas usage.
 					// This is for calculating expected cancellation fee.
 					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
+					var baseFeeInt int64 = 0
+					if baseFee.IsInt64() {
+						baseFeeInt = baseFee.Int64()
+					}
 					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)
@@ -1926,7 +1941,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					// Fix the gas limit and gas ice for predictable gas usage.
 					// This is for calculating expected cancellation fee.
 					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
+					var baseFeeInt int64 = 0
+					if baseFee.IsInt64() {
+						baseFeeInt = baseFee.Int64()
+					}
 					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)
@@ -2077,7 +2095,10 @@ func TestPrecompileIntegrationTestSuite(t *testing.T, create network.CreateEvmAp
 					// Fix the gas limit and gas price for predictable gas usage.
 					// This is for calculating expected cancellation fee.
 					baseFee := s.network.App.GetFeeMarketKeeper().GetBaseFee(s.network.GetContext())
-					baseFeeInt := baseFee.TruncateInt64()
+					var baseFeeInt int64 = 0
+					if baseFee.IsInt64() {
+						baseFeeInt = baseFee.Int64()
+					}
 					txArgs.GasPrice = new(big.Int).SetInt64(baseFeeInt)
 					txArgs.GasLimit = 500_000
 					txArgs.Amount = big.NewInt(100)

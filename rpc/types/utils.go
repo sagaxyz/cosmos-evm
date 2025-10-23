@@ -305,15 +305,15 @@ func effectiveGasPrice(tx *ethtypes.Transaction, baseFee *big.Int) *big.Int {
 // BaseFeeFromEvents parses the feemarket basefee from cosmos events
 func BaseFeeFromEvents(events []abci.Event) *big.Int {
 	for _, event := range events {
-		if event.Type != evmtypes.EventTypeFeeMarket {
+		if event.Type != feemarkettypes.EventTypeFeeMarket {
 			continue
 		}
 
 		for _, attr := range event.Attributes {
-			if attr.Key == evmtypes.AttributeKeyBaseFee {
-				result, success := sdkmath.NewIntFromString(attr.Value)
+			if attr.Key == feemarkettypes.AttributeKeyBaseFee {
+				result, success := new(big.Int).SetString(attr.Value, 10)
 				if success {
-					return result.BigInt()
+					return result
 				}
 
 				return nil

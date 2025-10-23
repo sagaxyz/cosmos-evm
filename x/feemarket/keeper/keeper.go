@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"math/big"
+
 	"github.com/cosmos/evm/x/feemarket/types"
 
 	"cosmossdk.io/log"
@@ -9,6 +11,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
+
+// KeyPrefixBaseFeeV1 TODO: Temporary will be removed with params refactor PR
+var KeyPrefixBaseFeeV1 = []byte{2}
 
 // Keeper grants access to the Fee Market module state.
 type Keeper struct {
@@ -80,4 +85,16 @@ func (k Keeper) AddTransientGasWanted(ctx sdk.Context, gasWanted uint64) (uint64
 	result := k.GetTransientGasWanted(ctx) + gasWanted
 	k.SetTransientBlockGasWanted(ctx, result)
 	return result, nil
+}
+
+// GetBaseFeeV1 get the base fee from v1 version of states.
+// return nil if base fee is not enabled
+// TODO: Figure out if this will be deleted ?
+func (k Keeper) GetBaseFeeV1(ctx sdk.Context) *big.Int {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(KeyPrefixBaseFeeV1)
+	if len(bz) == 0 {
+		return nil
+	}
+	return new(big.Int).SetBytes(bz)
 }

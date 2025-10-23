@@ -13,7 +13,6 @@ import (
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 
 	"cosmossdk.io/core/address"
-	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -63,9 +62,9 @@ type StakingKeeper interface {
 
 // FeeMarketKeeper defines the expected interfaces needed for the feemarket
 type FeeMarketKeeper interface {
-	GetBaseFee(ctx sdk.Context) math.LegacyDec
+	GetBaseFee(ctx sdk.Context) *big.Int
 	GetParams(ctx sdk.Context) feemarkettypes.Params
-	CalculateBaseFee(ctx sdk.Context) math.LegacyDec
+	CalculateBaseFee(ctx sdk.Context) *big.Int
 }
 
 // Erc20Keeper defines the expected interface needed to instantiate ERC20 precompiles.

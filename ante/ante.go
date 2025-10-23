@@ -30,6 +30,7 @@ type HandlerOptions struct {
 	SignModeHandler        *txsigning.HandlerMap
 	SigGasConsumer         func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
 	MaxTxGasWanted         uint64
+	TxFeeChecker           ante.TxFeeChecker
 	// use dynamic fee checker or the cosmos-sdk default one for native transactions
 	DynamicFeeChecker bool
 	PendingTxListener PendingTxListener

@@ -515,7 +515,7 @@ func (s *KeeperTestSuite) TestVerifyFeeAndDeductTxCostsFromUserBalance() {
 					s.Require().Equal(
 						fees,
 						sdk.NewCoins(
-							sdk.NewCoin(baseDenom, sdkmath.NewIntFromBigInt(tx.GetEffectiveFee(baseFee.TruncateInt().BigInt()))),
+							sdk.NewCoin(baseDenom, sdkmath.NewIntFromBigInt(tx.GetEffectiveFee(baseFee))),
 						),
 						"valid test %d failed, fee value is wrong  - '%s'", i, tc.name,
 					)

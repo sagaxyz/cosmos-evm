@@ -430,7 +430,7 @@ func setDefaultGovGenesisState(cosmosEVMApp evm.EvmApp, genesisState testutil.Ge
 
 // FeeMarketCustomGenesisState defines the fee market genesis state
 type FeeMarketCustomGenesisState struct {
-	baseFee sdkmath.LegacyDec
+	baseFee sdkmath.Int
 }
 
 // setDefaultFeeMarketGenesisState sets the default fee market genesis state

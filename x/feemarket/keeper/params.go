@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"math/big"
+
 	"github.com/cosmos/evm/x/feemarket/types"
 
 	"cosmossdk.io/math"
@@ -32,24 +34,36 @@ func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
 	return nil
 }
 
+// GetBaseFeeEnabled returns true if base fee is enabled
+func (k Keeper) GetBaseFeeEnabled(ctx sdk.Context) bool {
+	params := k.GetParams(ctx)
+	return !params.NoBaseFee && ctx.BlockHeight() >= params.EnableHeight
+}
+
 // ----------------------------------------------------------------------------
 // Parent Base Fee
 // Required by EIP1559 base fee calculation.
 // ----------------------------------------------------------------------------
 
 // GetBaseFee gets the base fee from the store
-func (k Keeper) GetBaseFee(ctx sdk.Context) math.LegacyDec {
+func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 	params := k.GetParams(ctx)
 	if params.NoBaseFee {
-		return math.LegacyDec{}
+		return nil
 	}
-	return params.BaseFee
+
+	baseFee := params.BaseFee.BigInt()
+	if baseFee == nil || baseFee.Sign() == 0 {
+		// try v1 format
+		return k.GetBaseFeeV1(ctx)
+	}
+	return baseFee
 }
 
 // SetBaseFee set's the base fee in the store
-func (k Keeper) SetBaseFee(ctx sdk.Context, baseFee math.LegacyDec) {
+func (k Keeper) SetBaseFee(ctx sdk.Context, baseFee *big.Int) {
 	params := k.GetParams(ctx)
-	params.BaseFee = baseFee
+	params.BaseFee = math.NewIntFromBigInt(baseFee)
 	err := k.SetParams(ctx, params)
 	if err != nil {
 		return

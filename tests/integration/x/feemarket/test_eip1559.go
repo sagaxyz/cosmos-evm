@@ -22,7 +22,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 	var (
 		nw             *network.UnitTestNetwork
 		ctx            sdk.Context
-		initialBaseFee math.LegacyDec
+		initialBaseFee math.Int
 	)
 
 	testCases := []struct {
@@ -31,7 +31,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 		blockHeight          int64
 		parentBlockGasWanted uint64
 		minGasPrice          math.LegacyDec
-		expFee               func() math.LegacyDec
+		expFee               func() *big.Int
 	}{
 		{
 			"without BaseFee",
@@ -47,7 +47,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 			0,
 			0,
 			math.LegacyZeroDec(),
-			func() math.LegacyDec { return nw.App.GetFeeMarketKeeper().GetParams(ctx).BaseFee },
+			func() *big.Int { return nw.App.GetFeeMarketKeeper().GetParams(ctx).BaseFee.BigInt() },
 		},
 		{
 			"with BaseFee - parent block wanted the same gas as its target (ElasticityMultiplier = 2)",
@@ -55,7 +55,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 			1,
 			50,
 			math.LegacyZeroDec(),
-			func() math.LegacyDec { return nw.App.GetFeeMarketKeeper().GetParams(ctx).BaseFee },
+			func() *big.Int { return nw.App.GetFeeMarketKeeper().GetParams(ctx).BaseFee.BigInt() },
 		},
 		{
 			"with BaseFee - parent block wanted the same gas as its target, with higher min gas price (ElasticityMultiplier = 2)",
@@ -63,7 +63,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 			1,
 			50,
 			math.LegacyNewDec(1500000000),
-			func() math.LegacyDec { return nw.App.GetFeeMarketKeeper().GetParams(ctx).BaseFee },
+			func() *big.Int { return nw.App.GetFeeMarketKeeper().GetParams(ctx).BaseFee.BigInt() },
 		},
 		{
 			"with BaseFee - parent block wanted more gas than its target (ElasticityMultiplier = 2)",
@@ -71,7 +71,11 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 			1,
 			100,
 			math.LegacyZeroDec(),
-			func() math.LegacyDec { return initialBaseFee.Add(math.LegacyNewDec(109375000)) },
+			func() *big.Int {
+				factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
+				delta := math.LegacyNewDec(109375000).MulInt(factor).TruncateInt()
+				return initialBaseFee.Add(delta).BigInt()
+			},
 		},
 		{
 			"with BaseFee - parent block wanted more gas than its target, with higher min gas price (ElasticityMultiplier = 2)",
@@ -79,7 +83,11 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 			1,
 			100,
 			math.LegacyNewDec(1500000000),
-			func() math.LegacyDec { return initialBaseFee.Add(math.LegacyNewDec(109375000)) },
+			func() *big.Int {
+				factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
+				delta := math.LegacyNewDec(109375000).MulInt(factor).TruncateInt()
+				return initialBaseFee.Add(delta).BigInt()
+			},
 		},
 		{
 			"with BaseFee - Parent gas wanted smaller than parent gas target (ElasticityMultiplier = 2)",
@@ -87,7 +95,11 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 			1,
 			25,
 			math.LegacyZeroDec(),
-			func() math.LegacyDec { return initialBaseFee.Sub(math.LegacyNewDec(54687500)) },
+			func() *big.Int {
+				factor := evmtypes.GetEVMCoinDecimals().ConversionFactor()
+				delta := math.LegacyNewDec(54687500).MulInt(factor).TruncateInt()
+				return initialBaseFee.Sub(delta).BigInt()
+			},
 		},
 		{
 			"with BaseFee - Parent gas wanted smaller than parent gas target, with higher min gas price (ElasticityMultiplier = 2)",
@@ -95,7 +107,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 			1,
 			25,
 			math.LegacyNewDec(1500000000),
-			func() math.LegacyDec { return math.LegacyNewDec(1500000000) },
+			func() *big.Int { return big.NewInt(1500000000) },
 		},
 	}
 	for _, tc := range testCases {
@@ -128,7 +140,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFee() {
 
 			fee := nw.App.GetFeeMarketKeeper().CalculateBaseFee(ctx)
 			if tc.NoBaseFee {
-				s.True(fee.IsNil(), tc.name)
+				s.True(fee == nil, tc.name)
 			} else {
 				s.Equal(tc.expFee(), fee, tc.name)
 			}
@@ -151,7 +163,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 		parentBaseFee  *big.Int
 		expectedResult *big.Int
 		expectedZero   bool // For disabled/pre-London cases
-		checkFunc      func(s *KeeperTestSuite, result math.LegacyDec, parentBaseFee *big.Int)
+		checkFunc      func(s *KeeperTestSuite, result math.Int, parentBaseFee *big.Int)
 	}{
 		{
 			name: "EIP-1559 disabled - returns zero",
@@ -192,7 +204,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 			setupParams: func() feemarkettypes.Params {
 				return feemarkettypes.Params{
 					NoBaseFee:                false,
-					BaseFee:                  math.LegacyNewDec(1000000000),
+					BaseFee:                  math.NewInt(1000000000),
 					ElasticityMultiplier:     2,
 					BaseFeeChangeDenominator: 8,
 					MinGasPrice:              math.LegacyZeroDec(),
@@ -222,7 +234,7 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 				// parentGasTarget = blockMaxGas / ElasticityMultiplier = 10000000 / 2 = 5000000
 				parentGasTarget := uint64(5000000)
 				k.SetBlockGasWanted(ctx, parentGasTarget) // Gas used equals target
-				k.SetBaseFee(ctx, math.LegacyNewDecFromBigInt(big.NewInt(1000000000)))
+				k.SetBaseFee(ctx, big.NewInt(1000000000))
 			},
 			currentBlock:   10,
 			parentBaseFee:  big.NewInt(1000000000),
@@ -245,14 +257,14 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 				// parentGasTarget = blockMaxGas / ElasticityMultiplier = 20000000 / 2 = 10000000
 				// Setting gasUsed = 15000000 (50% above target)
 				k.SetBlockGasWanted(ctx, 15000000) // Gas used > target
-				k.SetBaseFee(ctx, math.LegacyNewDecFromBigInt(big.NewInt(1000000000)))
+				k.SetBaseFee(ctx, big.NewInt(1000000000))
 			},
 			currentBlock:  10,
 			parentBaseFee: big.NewInt(1000000000),
-			checkFunc: func(s *KeeperTestSuite, result math.LegacyDec, parentBaseFee *big.Int) {
+			checkFunc: func(s *KeeperTestSuite, result math.Int, parentBaseFee *big.Int) {
 				s.T().Helper()
 				parentDec := math.LegacyNewDecFromBigInt(parentBaseFee)
-				require.True(s.T(), result.GT(parentDec), "Base fee should increase when gas used > target")
+				require.True(s.T(), result.ToLegacyDec().GT(parentDec), "Base fee should increase when gas used > target")
 			},
 		},
 		{
@@ -272,16 +284,16 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 				// parentGasTarget = blockMaxGas / ElasticityMultiplier = 20000000 / 2 = 10000000
 				// Setting gasUsed = 5000000 (50% below target)
 				k.SetBlockGasWanted(ctx, 5000000) // Gas used < target
-				k.SetBaseFee(ctx, math.LegacyNewDecFromBigInt(big.NewInt(1000000000)))
+				k.SetBaseFee(ctx, big.NewInt(1000000000))
 			},
 			currentBlock:  10,
 			parentBaseFee: big.NewInt(1000000000),
-			checkFunc: func(s *KeeperTestSuite, result math.LegacyDec, parentBaseFee *big.Int) {
+			checkFunc: func(s *KeeperTestSuite, result math.Int, parentBaseFee *big.Int) {
 				s.T().Helper()
 				// Should be at least min gas price
 				factor := math.LegacyNewDecFromInt(evmtypes.GetEVMCoinDecimals().ConversionFactor())
 				expectedMinGasPrice := math.LegacyNewDec(1_000_000_000).Mul(factor)
-				require.True(s.T(), result.GTE(expectedMinGasPrice), "Result should be at least min gas price")
+				require.True(s.T(), result.ToLegacyDec().GTE(expectedMinGasPrice), "Result should be at least min gas price")
 			},
 		},
 		{
@@ -301,14 +313,14 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 				// parentGasTarget = blockMaxGas / ElasticityMultiplier = 20000000 / 2 = 10000000
 				// Setting gasUsed = 5000000 (50% below target)
 				k.SetBlockGasWanted(ctx, 5000000) // Gas used < target
-				k.SetBaseFee(ctx, math.LegacyNewDecFromBigInt(big.NewInt(1000000000)))
+				k.SetBaseFee(ctx, big.NewInt(1000000000))
 			},
 			currentBlock:  10,
 			parentBaseFee: big.NewInt(1000000000),
-			checkFunc: func(s *KeeperTestSuite, result math.LegacyDec, parentBaseFee *big.Int) {
+			checkFunc: func(s *KeeperTestSuite, result math.Int, parentBaseFee *big.Int) {
 				s.T().Helper()
 				parentDec := math.LegacyNewDecFromBigInt(parentBaseFee)
-				require.True(s.T(), result.LT(parentDec), "Base fee should decrease when min gas price is very low")
+				require.True(s.T(), result.ToLegacyDec().LT(parentDec), "Base fee should decrease when min gas price is very low")
 			},
 		},
 		{
@@ -328,14 +340,14 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 				// parentGasTarget = blockMaxGas / ElasticityMultiplier = 10000000 / 2 = 5000000
 				// Setting gasUsed = 5000001 (tiny increase above target)
 				k.SetBlockGasWanted(ctx, 5000001) // Gas used > target (tiny increase)
-				k.SetBaseFee(ctx, math.LegacyNewDecFromBigInt(big.NewInt(1000)))
+				k.SetBaseFee(ctx, big.NewInt(1000))
 			},
 			currentBlock:  10,
 			parentBaseFee: big.NewInt(1000),
-			checkFunc: func(s *KeeperTestSuite, result math.LegacyDec, parentBaseFee *big.Int) {
+			checkFunc: func(s *KeeperTestSuite, result math.Int, parentBaseFee *big.Int) {
 				s.T().Helper()
 				parentDec := math.LegacyNewDecFromBigInt(parentBaseFee)
-				require.True(s.T(), result.GT(parentDec), "Base fee should increase even slightly due to minimum delta")
+				require.True(s.T(), result.ToLegacyDec().GT(parentDec), "Base fee should increase even slightly due to minimum delta")
 			},
 		},
 		{
@@ -355,14 +367,14 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 				// parentGasTarget = blockMaxGas / ElasticityMultiplier = 30000000 / 2 = 15000000
 				// Setting gasUsed = 29000000 (93% above target)
 				k.SetBlockGasWanted(ctx, 29000000) // Gas used >> target (nearly full block)
-				k.SetBaseFee(ctx, math.LegacyNewDecFromBigInt(big.NewInt(1000000000)))
+				k.SetBaseFee(ctx, big.NewInt(1000000000))
 			},
 			currentBlock:  10,
 			parentBaseFee: big.NewInt(1000000000),
-			checkFunc: func(s *KeeperTestSuite, result math.LegacyDec, parentBaseFee *big.Int) {
+			checkFunc: func(s *KeeperTestSuite, result math.Int, parentBaseFee *big.Int) {
 				s.T().Helper()
 				parentDec := math.LegacyNewDecFromBigInt(parentBaseFee)
-				require.True(s.T(), result.GT(parentDec), "Base fee should increase significantly with very high gas usage")
+				require.True(s.T(), result.ToLegacyDec().GT(parentDec), "Base fee should increase significantly with very high gas usage")
 			},
 		},
 		{
@@ -382,14 +394,14 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 				// parentGasTarget = blockMaxGas / ElasticityMultiplier = 30000000 / 2 = 15000000
 				// Setting gasUsed = 1000000 (93% below target)
 				k.SetBlockGasWanted(ctx, 1000000) // Gas used << target (very low usage)
-				k.SetBaseFee(ctx, math.LegacyNewDecFromBigInt(big.NewInt(1000000000)))
+				k.SetBaseFee(ctx, big.NewInt(1000000000))
 			},
 			currentBlock:  10,
 			parentBaseFee: big.NewInt(1000000000),
-			checkFunc: func(s *KeeperTestSuite, result math.LegacyDec, parentBaseFee *big.Int) {
+			checkFunc: func(s *KeeperTestSuite, result math.Int, parentBaseFee *big.Int) {
 				s.T().Helper()
 				parentDec := math.LegacyNewDecFromBigInt(parentBaseFee)
-				require.True(s.T(), result.LT(parentDec), "Base fee should decrease significantly with very low gas usage")
+				require.True(s.T(), result.ToLegacyDec().LT(parentDec), "Base fee should decrease significantly with very low gas usage")
 			},
 		},
 		{
@@ -409,16 +421,16 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 				// parentGasTarget = blockMaxGas / ElasticityMultiplier = 30000000 / 2 = 15000000
 				// Setting gasUsed = 0 (100% below target)
 				k.SetBlockGasWanted(ctx, 0) // No gas used
-				k.SetBaseFee(ctx, math.LegacyNewDecFromBigInt(big.NewInt(1000000000)))
+				k.SetBaseFee(ctx, big.NewInt(1000000000))
 			},
 			currentBlock:  10,
 			parentBaseFee: big.NewInt(1000000000),
-			checkFunc: func(s *KeeperTestSuite, result math.LegacyDec, parentBaseFee *big.Int) {
+			checkFunc: func(s *KeeperTestSuite, result math.Int, parentBaseFee *big.Int) {
 				s.T().Helper()
 				// Should be at least the minimum gas price
 				factor := math.LegacyNewDecFromInt(evmtypes.GetEVMCoinDecimals().ConversionFactor())
 				expectedMinGasPrice := math.LegacyNewDec(50_000_000_000).Mul(factor)
-				require.True(s.T(), result.GTE(expectedMinGasPrice), "Result should be at least min gas price when no gas is used")
+				require.True(s.T(), result.ToLegacyDec().GTE(expectedMinGasPrice), "Result should be at least min gas price when no gas is used")
 			},
 		},
 	}
@@ -453,13 +465,13 @@ func (s *KeeperTestSuite) TestCalculateBaseFeeEdgeCases() {
 
 			switch {
 			case tc.expectedZero:
-				s.True(result.IsNil(), "Expected zero base fee")
+				s.True(result == nil, "Expected zero base fee")
 			case tc.checkFunc != nil:
-				tc.checkFunc(s, result, tc.parentBaseFee)
+				tc.checkFunc(s, math.NewIntFromBigInt(result), tc.parentBaseFee)
 			case tc.expectedResult != nil:
-				expectedDec := math.LegacyNewDecFromBigInt(tc.expectedResult)
-				s.Equal(expectedDec, result,
-					"Expected: %s, Got: %s", expectedDec.String(), result.String())
+				expectedInt := math.NewIntFromBigInt(tc.expectedResult)
+				s.Equal(expectedInt, result,
+					"Expected: %s, Got: %s", expectedInt.String(), result.String())
 			}
 		})
 	}

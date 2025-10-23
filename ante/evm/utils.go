@@ -45,13 +45,14 @@ func NewMonoDecoratorUtils(
 	ctx sdk.Context,
 	ek anteinterfaces.EVMKeeper,
 	evmParams *evmtypes.Params,
-	feemarketParams *feemarkettypes.Params,
+	feeMarketParams *feemarkettypes.Params,
+	fmk anteinterfaces.FeeMarketKeeper,
 ) (*DecoratorUtils, error) {
 	ethCfg := evmtypes.GetEthChainConfig()
-	evmDenom := evmtypes.GetEVMCoinDenom()
 	blockHeight := big.NewInt(ctx.BlockHeight())
 	rules := ethCfg.Rules(blockHeight, true, uint64(ctx.BlockTime().Unix())) //#nosec G115 -- int overflow is not a concern here
-	baseFee := evmtypes.GetBaseFee(ctx.BlockHeight(), ethCfg, feemarketParams)
+	baseFee := evmtypes.GetBaseFee(ctx.BlockHeight(), ethCfg, feeMarketParams)
+	baseDenom := evmtypes.GetEVMCoinDenom()
 
 	if rules.IsLondon && baseFee == nil {
 		return nil, errorsmod.Wrap(
@@ -60,19 +61,13 @@ func NewMonoDecoratorUtils(
 		)
 	}
 
-	globalMinGasPrice := feemarketParams.MinGasPrice
-
-	// Mempool gas price should be scaled to the 18 decimals representation.
-	// If it is already a 18 decimal token, this is a no-op.
-	mempoolMinGasPrice := evmtypes.ConvertAmountTo18DecimalsLegacy(ctx.MinGasPrices().AmountOf(evmDenom))
-
 	return &DecoratorUtils{
 		EvmParams:          *evmParams,
 		Rules:              rules,
 		Signer:             ethtypes.MakeSigner(ethCfg, blockHeight, uint64(ctx.BlockTime().Unix())), //#nosec G115 -- int overflow is not a concern here
 		BaseFee:            baseFee,
-		MempoolMinGasPrice: mempoolMinGasPrice,
-		GlobalMinGasPrice:  globalMinGasPrice,
+		MempoolMinGasPrice: ctx.MinGasPrices().AmountOf(baseDenom),
+		GlobalMinGasPrice:  feeMarketParams.MinGasPrice,
 		BlockTxIndex:       ek.GetTxIndexTransient(ctx),
 		GasWanted:          0,
 		MinPriority:        int64(math.MaxInt64),

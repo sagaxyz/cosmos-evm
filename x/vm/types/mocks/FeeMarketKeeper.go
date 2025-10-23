@@ -3,7 +3,8 @@
 package mocks
 
 import (
-	math "cosmossdk.io/math"
+	"math/big"
+
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 
 	mock "github.com/stretchr/testify/mock"
@@ -17,36 +18,36 @@ type FeeMarketKeeper struct {
 }
 
 // CalculateBaseFee provides a mock function with given fields: ctx
-func (_m *FeeMarketKeeper) CalculateBaseFee(ctx types.Context) math.LegacyDec {
+func (_m *FeeMarketKeeper) CalculateBaseFee(ctx types.Context) *big.Int {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CalculateBaseFee")
 	}
 
-	var r0 math.LegacyDec
-	if rf, ok := ret.Get(0).(func(types.Context) math.LegacyDec); ok {
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(types.Context) *big.Int); ok {
 		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(math.LegacyDec)
+		r0 = ret.Get(0).(*big.Int)
 	}
 
 	return r0
 }
 
 // GetBaseFee provides a mock function with given fields: ctx
-func (_m *FeeMarketKeeper) GetBaseFee(ctx types.Context) math.LegacyDec {
+func (_m *FeeMarketKeeper) GetBaseFee(ctx types.Context) *big.Int {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetBaseFee")
 	}
 
-	var r0 math.LegacyDec
-	if rf, ok := ret.Get(0).(func(types.Context) math.LegacyDec); ok {
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(types.Context) *big.Int); ok {
 		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(math.LegacyDec)
+		r0 = ret.Get(0).(*big.Int)
 	}
 
 	return r0

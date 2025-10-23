@@ -4,6 +4,7 @@ import (
 	"fmt"
 	gomath "math"
 	"math/big"
+	"strconv"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -21,7 +22,6 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
-	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -72,10 +72,10 @@ func (b *Backend) BaseFee(blockRes *cmtrpctypes.ResultBlockResults) (*big.Int, e
 		// faster to iterate reversely
 		for i := len(blockRes.FinalizeBlockEvents) - 1; i >= 0; i-- {
 			evt := blockRes.FinalizeBlockEvents[i]
-			if evt.Type == evmtypes.EventTypeFeeMarket && len(evt.Attributes) > 0 {
-				baseFee, ok := sdkmath.NewIntFromString(evt.Attributes[0].Value)
-				if ok {
-					return baseFee.BigInt(), nil
+			if evt.Type == feemarkettypes.EventTypeFeeMarket && len(evt.Attributes) > 0 {
+				baseFee, err := strconv.ParseInt(evt.Attributes[0].Value, 10, 64)
+				if err == nil {
+					return big.NewInt(baseFee), nil
 				}
 				break
 			}

@@ -348,5 +348,7 @@ func (b *Backend) RPCMinGasPrice() *big.Int {
 		return big.NewInt(constants.DefaultGasPrice)
 	}
 
-	return evmtypes.ConvertAmountTo18DecimalsLegacy(amt).TruncateInt().BigInt()
+	evmCoinDecimal := evmtypes.GetEVMCoinDecimals()
+	dec := amt.MulInt(evmCoinDecimal.ConversionFactor())
+	return dec.TruncateInt().BigInt()
 }

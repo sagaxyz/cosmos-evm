@@ -9,6 +9,7 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/cosmos/evm/ante/evm"
+	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	"github.com/cosmos/evm/ante/types"
 	"github.com/cosmos/evm/config"
 	"github.com/cosmos/evm/encoding"
@@ -23,6 +24,24 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 )
+
+var _ anteinterfaces.DynamicFeeEVMKeeper = MockEVMKeeper{}
+
+type MockEVMKeeper struct {
+	BaseFee        *big.Int
+	EnableLondonHF bool
+}
+
+func (m MockEVMKeeper) GetBaseFee(_ sdk.Context) *big.Int {
+	if m.EnableLondonHF {
+		return m.BaseFee
+	}
+	return nil
+}
+
+func (m MockEVMKeeper) GetParams(_ sdk.Context) evmtypes.Params {
+	return evmtypes.DefaultParams()
+}
 
 func TestSDKTxFeeChecker(t *testing.T) {
 	// testCases:
@@ -128,7 +147,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			"fail, dynamic fee",
 			deliverTxCtx,
 			func() feemarkettypes.Params {
-				feemarketParams.BaseFee = math.LegacyNewDec(1)
+				feemarketParams.BaseFee = math.NewInt(1)
 				return feemarketParams
 			},
 			func() sdk.FeeTx {
@@ -145,7 +164,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			"success, dynamic fee",
 			deliverTxCtx,
 			func() feemarkettypes.Params {
-				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				feemarketParams.BaseFee = math.NewInt(10)
 				return feemarketParams
 			},
 			func() sdk.FeeTx {
@@ -163,7 +182,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			"success, dynamic fee priority",
 			deliverTxCtx,
 			func() feemarkettypes.Params {
-				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				feemarketParams.BaseFee = math.NewInt(10)
 				return feemarketParams
 			},
 			func() sdk.FeeTx {
@@ -181,7 +200,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			"success, dynamic fee empty tipFeeCap",
 			deliverTxCtx,
 			func() feemarkettypes.Params {
-				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				feemarketParams.BaseFee = math.NewInt(10)
 				return feemarketParams
 			},
 			func() sdk.FeeTx {
@@ -203,7 +222,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			"success, dynamic fee tipFeeCap",
 			deliverTxCtx,
 			func() feemarkettypes.Params {
-				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				feemarketParams.BaseFee = math.NewInt(10)
 				return feemarketParams
 			},
 			func() sdk.FeeTx {
@@ -212,7 +231,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 				txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(testconstants.ExampleAttoDenom, math.NewInt(10).Mul(evmtypes.DefaultPriorityReduction).Add(math.NewInt(10)))))
 
 				option, err := codectypes.NewAnyWithValue(&types.ExtensionOptionDynamicFeeTx{
-					MaxPriorityPrice: math.LegacyNewDec(5).MulInt(evmtypes.DefaultPriorityReduction),
+					MaxPriorityPrice: math.NewInt(5).Mul(evmtypes.DefaultPriorityReduction),
 				})
 				require.NoError(t, err)
 				txBuilder.SetExtensionOptions(option)
@@ -227,7 +246,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 			"fail, negative dynamic fee tipFeeCap",
 			deliverTxCtx,
 			func() feemarkettypes.Params {
-				feemarketParams.BaseFee = math.LegacyNewDec(10)
+				feemarketParams.BaseFee = math.NewInt(10)
 				return feemarketParams
 			},
 			func() sdk.FeeTx {
@@ -237,7 +256,7 @@ func TestSDKTxFeeChecker(t *testing.T) {
 
 				// set negative priority fee
 				option, err := codectypes.NewAnyWithValue(&types.ExtensionOptionDynamicFeeTx{
-					MaxPriorityPrice: math.LegacyNewDec(-5).MulInt(evmtypes.DefaultPriorityReduction),
+					MaxPriorityPrice: math.NewInt(-5).Mul(evmtypes.DefaultPriorityReduction),
 				})
 				require.NoError(t, err)
 				txBuilder.SetExtensionOptions(option)

@@ -1,6 +1,8 @@
 package feemarket
 
 import (
+	"math/big"
+
 	"github.com/cosmos/evm/testutil/integration/evm/network"
 
 	"cosmossdk.io/math"
@@ -48,14 +50,14 @@ func (s *KeeperTestSuite) TestSetGetGasFee() {
 	testCases := []struct {
 		name     string
 		malleate func()
-		expFee   math.LegacyDec
+		expFee   *big.Int
 	}{
 		{
 			"with last block given",
 			func() {
-				nw.App.GetFeeMarketKeeper().SetBaseFee(ctx, math.LegacyOneDec())
+				nw.App.GetFeeMarketKeeper().SetBaseFee(ctx, math.LegacyOneDec().BigInt())
 			},
-			math.LegacyOneDec(),
+			math.LegacyOneDec().BigInt(),
 		},
 	}
 

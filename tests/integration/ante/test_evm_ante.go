@@ -38,7 +38,7 @@ func (s *EvmAnteTestSuite) TestAnteHandler() {
 
 	setup := func() {
 		s.WithFeemarketEnabled(false)
-		baseFee := sdkmath.LegacyNewDec(100)
+		baseFee := sdkmath.NewInt(100)
 		s.WithBaseFee(&baseFee)
 		s.SetupTest() // reset
 

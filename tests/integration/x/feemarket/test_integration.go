@@ -82,7 +82,7 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 					// local min-gas-prices is 10aatom
 					params := fmkttypes.DefaultParams()
 					params.MinGasPrice = math.LegacyNewDec(minGasPrices)
-					params.BaseFee = math.LegacyNewDec(0)
+					params.BaseFee = math.NewInt(0)
 					err := utils.UpdateFeeMarketParams(
 						utils.UpdateParamsInput{
 							Tf:      s.factory,
@@ -150,7 +150,7 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 					// local min-gas-prices is 10aatom
 					params := fmkttypes.DefaultParams()
 					params.MinGasPrice = math.LegacyNewDec(minGasPrices)
-					params.BaseFee = math.LegacyNewDec(0)
+					params.BaseFee = math.NewInt(0)
 
 					err := utils.UpdateFeeMarketParams(
 						utils.UpdateParamsInput{
@@ -215,7 +215,7 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 			Context("with MinGasPrices (feemarket param) < min-gas-prices (local)", func() {
 				// minGasPrices is the feemarket MinGasPrices
 				const minGasPrices int64 = 7
-				baseFee := math.LegacyNewDec(15)
+				baseFee := math.NewInt(15)
 
 				BeforeEach(func() {
 					// local min-gas-prices is 10aatom
@@ -264,7 +264,7 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 					})
 
 					It("should accept transactions with gasPrice >= baseFee", func() {
-						gasPrice := baseFee.TruncateInt()
+						gasPrice := baseFee
 						txArgs.GasPrice = &gasPrice
 						tx, err := s.factory.BuildCosmosTx(privKey, txArgs)
 						Expect(err).To(BeNil())
@@ -296,7 +296,7 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 						Expect(res.Log).To(ContainSubstring("insufficient fee"))
 					})
 					It("should accept transactions with gasPrice >= baseFee", func() {
-						gasPrice := baseFee.TruncateInt()
+						gasPrice := baseFee
 						txArgs.GasPrice = &gasPrice
 						res, err := s.factory.ExecuteCosmosTx(privKey, txArgs)
 						Expect(err).To(BeNil())
@@ -334,7 +334,7 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 
 					params := fmkttypes.DefaultParams()
 					params.MinGasPrice = math.LegacyNewDec(minGasPrices)
-					params.BaseFee = math.LegacyNewDec(baseFee)
+					params.BaseFee = math.NewInt(baseFee)
 
 					// Note that the tests run the same transactions with `gasLimit =
 					// 200_000`. With the fee calculation `Fee = (baseFee + tip) * gasLimit`,
@@ -528,7 +528,7 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 						// local min-gas-prices is 10aatom
 						params := fmkttypes.DefaultParams()
 						params.MinGasPrice = math.LegacyNewDec(minGasPrices)
-						params.BaseFee = math.LegacyNewDec(baseFee)
+						params.BaseFee = math.NewInt(baseFee)
 
 						// Note that the tests run the same transactions with `gasLimit =
 						// 200_000`. With the fee calculation `Fee = (baseFee + tip) * gasLimit`,
@@ -622,7 +622,7 @@ func TestKeeperIntegrationTestSuite(t *testing.T) {
 						// local min-gas-prices is 10aatom
 						params := fmkttypes.DefaultParams()
 						params.MinGasPrice = math.LegacyNewDec(minGasPrices)
-						params.BaseFee = math.LegacyNewDec(baseFee)
+						params.BaseFee = math.NewInt(baseFee)
 
 						err := utils.UpdateFeeMarketParams(
 							utils.UpdateParamsInput{

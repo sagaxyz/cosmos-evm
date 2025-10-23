@@ -58,8 +58,8 @@ type Keeper struct {
 	// access historical headers for EVM state transition execution
 	stakingKeeper types.StakingKeeper
 	// fetch EIP1559 base fee and parameters
-	feeMarketWrapper *wrappers.FeeMarketWrapper
-	// optional erc20Keeper interface needed to instantiate erc20 precompiles
+	feeMarketKeeper types.FeeMarketKeeper
+	// erc20Keeper interface needed to instantiate erc20 precompiles
 	erc20Keeper types.Erc20Keeper
 	// consensusKeeper is used to get consensus params during query contexts.
 	// This is needed as block.gasLimit is expected to be available in eth_call, which is routed through Cosmos SDK's
@@ -109,7 +109,6 @@ func NewKeeper(
 	}
 
 	bankWrapper := wrappers.NewBankWrapper(bankKeeper)
-	feeMarketWrapper := wrappers.NewFeeMarketWrapper(fmk)
 
 	// set global chain config
 	ethCfg := types.DefaultChainConfig(evmChainID)
@@ -119,18 +118,18 @@ func NewKeeper(
 
 	// NOTE: we pass in the parameter space to the CommitStateDB in order to use custom denominations for the EVM operations
 	return &Keeper{
-		cdc:              cdc,
-		authority:        authority,
-		accountKeeper:    ak,
-		bankWrapper:      bankWrapper,
-		stakingKeeper:    sk,
-		feeMarketWrapper: feeMarketWrapper,
-		storeKey:         storeKey,
-		transientKey:     transientKey,
-		tracer:           tracer,
-		consensusKeeper:  consensusKeeper,
-		erc20Keeper:      erc20Keeper,
-		storeKeys:        keys,
+		cdc:             cdc,
+		authority:       authority,
+		accountKeeper:   ak,
+		bankWrapper:     bankWrapper,
+		stakingKeeper:   sk,
+		feeMarketKeeper: fmk,
+		storeKey:        storeKey,
+		transientKey:    transientKey,
+		tracer:          tracer,
+		consensusKeeper: consensusKeeper,
+		erc20Keeper:     erc20Keeper,
+		storeKeys:       keys,
 	}
 }
 
@@ -348,12 +347,13 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr common.Address) *uint256.Int {
 // - `0`: london hardfork enabled but feemarket is not enabled.
 // - `n`: both london hardfork and feemarket are enabled.
 func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
-	ethCfg := types.GetEthChainConfig()
+	chainConfig := types.GetChainConfig()
+	ethCfg := chainConfig.EthereumConfig(big.NewInt(int64(chainConfig.ChainId)))
 	if !types.IsLondon(ethCfg, ctx.BlockHeight()) {
 		return nil
 	}
-	coinInfo := k.GetEvmCoinInfo(ctx)
-	baseFee := k.feeMarketWrapper.GetBaseFee(ctx, types.Decimals(coinInfo.Decimals))
+	// TODO: use wrapper.
+	baseFee := k.feeMarketKeeper.GetBaseFee(ctx)
 	if baseFee == nil {
 		// return 0 if feemarket not enabled.
 		baseFee = big.NewInt(0)
@@ -361,10 +361,15 @@ func (k Keeper) GetBaseFee(ctx sdk.Context) *big.Int {
 	return baseFee
 }
 
+// GetMinGasMultiplier returns the MinGasMultiplier param from the fee market module
+func (k Keeper) GetMinGasMultiplier(ctx sdk.Context) math.LegacyDec {
+	return k.feeMarketKeeper.GetParams(ctx).MinGasMultiplier
+}
+
 // GetMinGasPrice returns the MinGasPrice param from the fee market module
 // adapted according to the evm denom decimals
 func (k Keeper) GetMinGasPrice(ctx sdk.Context) math.LegacyDec {
-	return k.feeMarketWrapper.GetParams(ctx).MinGasPrice
+	return k.feeMarketKeeper.GetParams(ctx).MinGasPrice
 }
 
 // ResetTransientGasUsed reset gas used to prepare for execution of current cosmos tx, called in ante handler.

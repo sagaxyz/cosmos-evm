@@ -16,6 +16,7 @@ import (
 	rpc "github.com/cosmos/evm/rpc/types"
 	"github.com/cosmos/evm/testutil/constants"
 	utiltx "github.com/cosmos/evm/testutil/tx"
+	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	sdkmath "cosmossdk.io/math"
@@ -66,7 +67,7 @@ func (s *TestSuite) TestBaseFee() {
 				Height: 1,
 				FinalizeBlockEvents: []types.Event{
 					{
-						Type: evmtypes.EventTypeFeeMarket,
+						Type: feemarkettypes.EventTypeFeeMarket,
 					},
 				},
 			},
@@ -83,7 +84,7 @@ func (s *TestSuite) TestBaseFee() {
 				Height: 1,
 				FinalizeBlockEvents: []types.Event{
 					{
-						Type: evmtypes.EventTypeFeeMarket,
+						Type: feemarkettypes.EventTypeFeeMarket,
 						Attributes: []types.EventAttribute{
 							{Value: "/1"},
 						},
@@ -103,7 +104,7 @@ func (s *TestSuite) TestBaseFee() {
 				Height: 1,
 				FinalizeBlockEvents: []types.Event{
 					{
-						Type: evmtypes.EventTypeFeeMarket,
+						Type: feemarkettypes.EventTypeFeeMarket,
 						Attributes: []types.EventAttribute{
 							{Value: baseFee.String()},
 						},

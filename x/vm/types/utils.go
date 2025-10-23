@@ -235,5 +235,5 @@ func GetBaseFee(height int64, ethCfg *params.ChainConfig, feemarketParams *feema
 	if baseFee.IsZero() {
 		return new(big.Int)
 	}
-	return ConvertAmountTo18DecimalsLegacy(baseFee).TruncateInt().BigInt()
+	return baseFee.BigInt()
 }

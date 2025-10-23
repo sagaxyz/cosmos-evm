@@ -35,7 +35,7 @@ type AnteTestSuite struct { //nolint:revive
 	anteHandler sdk.AnteHandler
 
 	enableFeemarket bool
-	baseFee         *sdkmath.LegacyDec
+	baseFee         *sdkmath.Int
 	enableLondonHF  bool
 	evmParamsOption func(*evmtypes.Params)
 }
@@ -140,7 +140,7 @@ func (s *AnteTestSuite) WithLondonHardForkEnabled(enabled bool) {
 	s.enableLondonHF = enabled
 }
 
-func (s *AnteTestSuite) WithBaseFee(baseFee *sdkmath.LegacyDec) {
+func (s *AnteTestSuite) WithBaseFee(baseFee *sdkmath.Int) {
 	s.baseFee = baseFee
 }
 
