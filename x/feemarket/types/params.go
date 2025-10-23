@@ -9,8 +9,6 @@ import (
 )
 
 var (
-	// DefaultBaseFee for the Cosmos EVM chain
-	DefaultBaseFee = math.LegacyNewDec(1_000_000_000)
 	// DefaultMinGasMultiplier is 0.5 or 50%
 	DefaultMinGasMultiplier = math.LegacyNewDecWithPrec(50, 2)
 	// DefaultMinGasPrice is 0 (i.e disabled)
@@ -28,7 +26,7 @@ func NewParams(
 	noBaseFee bool,
 	baseFeeChangeDenom,
 	elasticityMultiplier uint32,
-	baseFee math.LegacyDec,
+	baseFee uint64,
 	enableHeight int64,
 	minGasPrice math.LegacyDec,
 	minGasPriceMultiplier math.LegacyDec,
@@ -37,7 +35,7 @@ func NewParams(
 		NoBaseFee:                noBaseFee,
 		BaseFeeChangeDenominator: baseFeeChangeDenom,
 		ElasticityMultiplier:     elasticityMultiplier,
-		BaseFee:                  baseFee,
+		BaseFee:                  math.NewIntFromUint64(baseFee),
 		EnableHeight:             enableHeight,
 		MinGasPrice:              minGasPrice,
 		MinGasMultiplier:         minGasPriceMultiplier,
@@ -50,7 +48,7 @@ func DefaultParams() Params {
 		NoBaseFee:                DefaultNoBaseFee,
 		BaseFeeChangeDenominator: params.DefaultBaseFeeChangeDenominator,
 		ElasticityMultiplier:     params.DefaultElasticityMultiplier,
-		BaseFee:                  DefaultBaseFee,
+		BaseFee:                  math.NewIntFromUint64(params.InitialBaseFee),
 		EnableHeight:             DefaultEnableHeight,
 		MinGasPrice:              DefaultMinGasPrice,
 		MinGasMultiplier:         DefaultMinGasMultiplier,

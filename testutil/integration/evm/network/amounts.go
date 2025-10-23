@@ -59,12 +59,10 @@ func GetInitialBondedAmount(decimals evmtypes.Decimals) math.Int {
 	return initialBondedAmount.Quo(decimals.ConversionFactor())
 }
 
-func GetInitialBaseFeeAmount(decimals evmtypes.Decimals) math.LegacyDec {
+func GetInitialBaseFeeAmount(decimals evmtypes.Decimals) math.Int {
 	if err := decimals.Validate(); err != nil {
 		panic("unsupported decimals")
 	}
-
-	baseFee := math.LegacyNewDec(1_000_000_000)
-	baseFee = baseFee.Quo(decimals.ConversionFactor().ToLegacyDec())
-	return baseFee
+	// Base fee is stored as integer minimal units. Use 1_000_000_000 minimal units as default.
+	return math.NewInt(1_000_000_000)
 }

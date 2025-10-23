@@ -127,7 +127,8 @@ func init() {
 			allowUnprotectedTxs bool,
 			indexer types.EVMTxIndexer,
 			_ string,
-			_ bool) []rpc.API {
+			_ bool,
+		) []rpc.API {
 			evmBackend := backend.NewBackend(ctx, ctx.Logger, clientCtx, allowUnprotectedTxs, indexer)
 			return []rpc.API{
 				{

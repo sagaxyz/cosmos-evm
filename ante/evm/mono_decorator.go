@@ -70,7 +70,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 2. get utils
-	decUtils, err := NewMonoDecoratorUtils(ctx, md.evmKeeper)
+	decUtils, err := NewMonoDecoratorUtils(ctx, md.evmKeeper, md.feeMarketKeeper)
 	if err != nil {
 		return ctx, err
 	}

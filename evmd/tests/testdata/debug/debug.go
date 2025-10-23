@@ -2,12 +2,14 @@
 package debug
 
 import (
-	"cosmossdk.io/errors"
 	"fmt"
+	"math/big"
+
+	"cosmossdk.io/errors"
+
 	errors2 "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/ethereum/go-ethereum/core/tracing"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"

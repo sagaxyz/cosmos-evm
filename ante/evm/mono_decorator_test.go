@@ -80,8 +80,8 @@ func (m MockFeeMarketKeeper) GetParams(_ sdk.Context) feemarkettypes.Params {
 func (m MockFeeMarketKeeper) AddTransientGasWanted(_ sdk.Context, _ uint64) (uint64, error) {
 	return 0, nil
 }
-func (m MockFeeMarketKeeper) GetBaseFeeEnabled(_ sdk.Context) bool    { return true }
-func (m MockFeeMarketKeeper) GetBaseFee(_ sdk.Context) math.LegacyDec { return math.LegacyZeroDec() }
+func (m MockFeeMarketKeeper) GetBaseFeeEnabled(_ sdk.Context) bool { return true }
+func (m MockFeeMarketKeeper) GetBaseFee(_ sdk.Context) math.Int    { return math.ZeroInt() }
 
 // matches the actual signatures
 type MockAccountKeeper struct {

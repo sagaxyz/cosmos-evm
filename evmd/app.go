@@ -842,7 +842,7 @@ func (app *EVMD) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64) {
 		SignModeHandler:        txConfig.SignModeHandler(),
 		SigGasConsumer:         evmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         maxGasWanted,
-		TxFeeChecker:           cosmosevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
+		TxFeeChecker:           cosmosevmante.NewDynamicFeeChecker(app.EVMKeeper),
 		PendingTxListener:      app.onPendingTx,
 	}
 	if err := options.Validate(); err != nil {

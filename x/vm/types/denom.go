@@ -54,7 +54,7 @@ var ConversionFactor = map[Decimals]math.Int{
 }
 
 // Decimals represents the decimal representation of a Cosmos coin.
-type Decimals uint8
+type Decimals uint32
 
 // Validate checks if the Decimals instance represent a supported decimals value
 // or not.

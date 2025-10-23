@@ -480,10 +480,10 @@ func (m *MockFeeMarketKeeper) EXPECT() *MockFeeMarketKeeperMockRecorder {
 }
 
 // CalculateBaseFee mocks base method.
-func (m *MockFeeMarketKeeper) CalculateBaseFee(ctx types.Context) math.LegacyDec {
+func (m *MockFeeMarketKeeper) CalculateBaseFee(ctx types.Context) math.Int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CalculateBaseFee", ctx)
-	ret0, _ := ret[0].(math.LegacyDec)
+	ret0, _ := ret[0].(math.Int)
 	return ret0
 }
 
@@ -494,10 +494,10 @@ func (mr *MockFeeMarketKeeperMockRecorder) CalculateBaseFee(ctx interface{}) *go
 }
 
 // GetBaseFee mocks base method.
-func (m *MockFeeMarketKeeper) GetBaseFee(ctx types.Context) math.LegacyDec {
+func (m *MockFeeMarketKeeper) GetBaseFee(ctx types.Context) math.Int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBaseFee", ctx)
-	ret0, _ := ret[0].(math.LegacyDec)
+	ret0, _ := ret[0].(math.Int)
 	return ret0
 }
 

@@ -236,7 +236,6 @@ func (k Keeper) EthCall(c context.Context, req *types.EthCallRequest) (*types.Ms
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	cfg, err := k.EVMConfig(ctx, GetProposerAddress(ctx, req.ProposerAddress))
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -482,7 +481,7 @@ func (k Keeper) TraceTx(c context.Context, req *types.QueryTraceTxRequest) (*typ
 	}
 
 	// compute and use base fee of the height that is being traced
-	baseFee := k.feeMarketWrapper.CalculateBaseFee(ctx)
+	baseFee := k.feeMarketKeeper.CalculateBaseFee(ctx)
 	if baseFee != nil {
 		cfg.BaseFee = baseFee
 	}
@@ -573,7 +572,7 @@ func (k Keeper) TraceBlock(c context.Context, req *types.QueryTraceBlockRequest)
 	}
 
 	// compute and use base fee of height that is being traced
-	baseFee := k.feeMarketWrapper.CalculateBaseFee(ctx)
+	baseFee := k.feeMarketKeeper.CalculateBaseFee(ctx)
 	if baseFee != nil {
 		cfg.BaseFee = baseFee
 	}
