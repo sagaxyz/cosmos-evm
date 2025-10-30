@@ -1,6 +1,7 @@
 package erc20
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -23,6 +24,7 @@ const (
 
 // EmitTransferEvent creates a new Transfer event emitted on transfer and transferFrom transactions.
 func (p Precompile) EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, from, to common.Address, value *big.Int) error {
+	fmt.Println("ERC20!!!!!! EmitTransferEvent", from, to, value)
 	// Prepare the event topics
 	event := p.Events[EventTypeTransfer]
 	topics := make([]common.Hash, 3)
@@ -33,20 +35,24 @@ func (p Precompile) EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, from,
 	var err error
 	topics[1], err = cmn.MakeTopic(from)
 	if err != nil {
+		fmt.Println("ERC20!!!!!! error 11111", err)
 		return err
 	}
 
 	topics[2], err = cmn.MakeTopic(to)
 	if err != nil {
+		fmt.Println("ERC20!!!!!! error 22222", err)
 		return err
 	}
 
 	arguments := abi.Arguments{event.Inputs[2]}
 	packed, err := arguments.Pack(value)
 	if err != nil {
+		fmt.Println("ERC20!!!!!! error 33333", err)
 		return err
 	}
 
+	fmt.Println("ERC20!!!!!! AddLog", p.Address(), topics, packed, ctx.BlockHeight())
 	stateDB.AddLog(&ethtypes.Log{
 		Address:     p.Address(),
 		Topics:      topics,

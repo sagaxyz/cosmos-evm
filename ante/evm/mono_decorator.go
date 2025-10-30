@@ -25,6 +25,7 @@ type MonoDecorator struct {
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper
 	evmKeeper       anteinterfaces.EVMKeeper
 	maxGasWanted    uint64
+	skipGasCheckFn  func(ctx sdk.Context, tx sdk.Tx) bool
 }
 
 // NewEVMMonoDecorator creates the 'mono' decorator, that is used to run the ante handle logic
@@ -38,12 +39,14 @@ func NewEVMMonoDecorator(
 	feeMarketKeeper anteinterfaces.FeeMarketKeeper,
 	evmKeeper anteinterfaces.EVMKeeper,
 	maxGasWanted uint64,
+	skipGasCheckFn func(ctx sdk.Context, tx sdk.Tx) bool,
 ) MonoDecorator {
 	return MonoDecorator{
 		accountKeeper:   accountKeeper,
 		feeMarketKeeper: feeMarketKeeper,
 		evmKeeper:       evmKeeper,
 		maxGasWanted:    maxGasWanted,
+		skipGasCheckFn:  skipGasCheckFn,
 	}
 }
 
@@ -92,12 +95,13 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	gas := ethTx.Gas()
 	fee := sdkmath.LegacyNewDecFromBigInt(feeAmt)
 	gasLimit := sdkmath.LegacyNewDecFromBigInt(new(big.Int).SetUint64(gas))
+	skipGasCheck := md.skipGasCheckFn(ctx, tx)
 
 	// TODO: computation for mempool and global fee can be made using only
 	// the price instead of the fee. This would save some computation.
 	//
 	// 2. mempool inclusion fee
-	if ctx.IsCheckTx() && !simulate {
+	if ctx.IsCheckTx() && !simulate && !skipGasCheck {
 		// FIX: Mempool dec should be converted
 		if err := CheckMempoolFee(fee, decUtils.MempoolMinGasPrice, gasLimit, decUtils.Rules.IsLondon); err != nil {
 			return ctx, err
@@ -115,8 +119,10 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 3. min gas price (global min fee)
-	if err := CheckGlobalFee(fee, decUtils.GlobalMinGasPrice, gasLimit); err != nil {
-		return ctx, err
+	if !skipGasCheck {
+		if err := CheckGlobalFee(fee, decUtils.GlobalMinGasPrice, gasLimit); err != nil {
+			return ctx, err
+		}
 	}
 
 	// 4. validate msg contents
@@ -144,73 +150,79 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	// using a wrapper of the bank keeper as a dependency to scale all
 	// balances to 18 decimals.
 	account := md.evmKeeper.GetAccount(ctx, fromAddr)
-	if err := VerifyAccountBalance(
-		ctx,
-		md.evmKeeper,
-		md.accountKeeper,
-		account,
-		fromAddr,
-		ethTx,
-	); err != nil {
-		return ctx, err
+	if !skipGasCheck {
+		if err := VerifyAccountBalance(
+			ctx,
+			md.evmKeeper,
+			md.accountKeeper,
+			account,
+			fromAddr,
+			ethTx,
+		); err != nil {
+			return ctx, err
+		}
 	}
 
 	// 7. can transfer
 	coreMsg := ethMsg.AsMessage(decUtils.BaseFee)
-	if err := CanTransfer(
-		ctx,
-		md.evmKeeper,
-		*coreMsg,
-		coreMsg.GasFeeCap,
-		decUtils.BaseFee,
-		decUtils.EvmParams,
-		decUtils.Rules.IsLondon,
-	); err != nil {
-		return ctx, err
+	if !skipGasCheck {
+		if err := CanTransfer(
+			ctx,
+			md.evmKeeper,
+			*coreMsg,
+			coreMsg.GasFeeCap,
+			decUtils.BaseFee,
+			decUtils.EvmParams,
+			decUtils.Rules.IsLondon,
+		); err != nil {
+			return ctx, err
+		}
 	}
 
 	// 8. gas consumption
-	msgFees, err := evmkeeper.VerifyFee(
-		ethTx,
-		evmDenom,
-		decUtils.BaseFee,
-		decUtils.Rules.IsHomestead,
-		decUtils.Rules.IsIstanbul,
-		decUtils.Rules.IsShanghai,
-		ctx.IsCheckTx(),
-	)
-	if err != nil {
-		return ctx, err
+	if !skipGasCheck {
+		msgFees, err := evmkeeper.VerifyFee(
+			ethTx,
+			evmDenom,
+			decUtils.BaseFee,
+			decUtils.Rules.IsHomestead,
+			decUtils.Rules.IsIstanbul,
+			decUtils.Rules.IsShanghai,
+			ctx.IsCheckTx(),
+		)
+		if err != nil {
+			return ctx, err
+		}
+
+		err = ConsumeFeesAndEmitEvent(
+			ctx,
+			md.evmKeeper,
+			msgFees,
+			from,
+		)
+		if err != nil {
+			return ctx, err
+		}
+
+		gasWanted := UpdateCumulativeGasWanted(
+			ctx,
+			gas,
+			md.maxGasWanted,
+			decUtils.GasWanted,
+		)
+		decUtils.GasWanted = gasWanted
+
+		minPriority := GetMsgPriority(
+			ethTx,
+			decUtils.MinPriority,
+			decUtils.BaseFee,
+		)
+		decUtils.MinPriority = minPriority
+
+		// Update the fee to be paid for the tx adding the fee specified for the
+		// current message.
+		decUtils.TxFee.Add(decUtils.TxFee, ethMsg.GetFee())
 	}
-
-	err = ConsumeFeesAndEmitEvent(
-		ctx,
-		md.evmKeeper,
-		msgFees,
-		from,
-	)
-	if err != nil {
-		return ctx, err
-	}
-
-	gasWanted := UpdateCumulativeGasWanted(
-		ctx,
-		gas,
-		md.maxGasWanted,
-		decUtils.GasWanted,
-	)
-	decUtils.GasWanted = gasWanted
-
-	minPriority := GetMsgPriority(
-		ethTx,
-		decUtils.MinPriority,
-		decUtils.BaseFee,
-	)
-	decUtils.MinPriority = minPriority
-
-	// Update the fee to be paid for the tx adding the fee specified for the
-	// current message.
-	decUtils.TxFee.Add(decUtils.TxFee, ethMsg.GetFee())
 
 	// Update the transaction gas limit adding the gas specified in the
 	// current message.

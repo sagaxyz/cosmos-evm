@@ -1,6 +1,7 @@
 package erc20
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -50,6 +51,8 @@ func (p *Precompile) Transfer(
 		return nil, err
 	}
 
+	fmt.Println("ERC20!!!!!! Transfer", from, to, amount)
+
 	return p.transfer(ctx, contract, stateDB, method, from, to, amount)
 }
 
@@ -85,10 +88,11 @@ func (p *Precompile) transfer(
 	amount *big.Int,
 ) (data []byte, err error) {
 	coins := sdk.Coins{{Denom: p.tokenPair.Denom, Amount: math.NewIntFromBigInt(amount)}}
-
+	fmt.Println("ERC20!!!!!! transfer", from, to, amount, coins)
 	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), coins)
 
 	if err = msg.Amount.Validate(); err != nil {
+		fmt.Println("ERC20!!!!!! error", err)
 		return nil, err
 	}
 
@@ -123,6 +127,7 @@ func (p *Precompile) transfer(
 
 	msgSrv := NewMsgServerImpl(p.BankKeeper)
 	if err = msgSrv.Send(ctx, msg); err != nil {
+		fmt.Println("ERC20!!!!!! error 22222", err)
 		// This should return an error to avoid the contract from being executed and an event being emitted
 		return nil, ConvertErrToERC20Error(err)
 	}
@@ -131,6 +136,7 @@ func (p *Precompile) transfer(
 	// Currently, decimal conversion issues exist with the precisebank module.
 	// As a temporary workaround, balances are adjusted directly using add/sub operations.
 	evmDenom := evmtypes.GetEVMCoinDenom()
+	fmt.Println("ERC20!!!!!! evmDenom", evmDenom, p.tokenPair.Denom)
 	if p.tokenPair.Denom == evmDenom {
 		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amount))
 		if err != nil {
