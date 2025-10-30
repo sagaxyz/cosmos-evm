@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -21,8 +23,10 @@ func (k *Keeper) GetPrecompileInstance(
 	address common.Address,
 ) (*Precompiles, bool, error) {
 	params := k.GetParams(ctx)
+	fmt.Println("VM!!!!!! GetPrecompileInstance", address, params)
 	// Get the precompile from the static precompiles
 	if precompile, found, err := k.GetStaticPrecompileInstance(&params, address); err != nil {
+		fmt.Println("VM!!!!!! GetPrecompileInstance error 11111", err)
 		return nil, false, err
 	} else if found {
 		addressMap := make(map[common.Address]vm.PrecompiledContract)
@@ -36,10 +40,14 @@ func (k *Keeper) GetPrecompileInstance(
 	// Get the precompile from the dynamic precompiles
 	precompile, found, err := k.erc20Keeper.GetERC20PrecompileInstance(ctx, address)
 	if err != nil || !found {
+		fmt.Println("VM!!!!!! GetPrecompileInstance error 22222", err)
 		return nil, false, err
 	}
 	addressMap := make(map[common.Address]vm.PrecompiledContract)
 	addressMap[address] = precompile
+
+	fmt.Println("VM!!!!!! GetPrecompileInstance addressMap", addressMap, precompile.Address())
+
 	return &Precompiles{
 		Map:       addressMap,
 		Addresses: []common.Address{precompile.Address()},

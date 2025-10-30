@@ -140,6 +140,7 @@ func (p *Precompile) transfer(
 	if p.tokenPair.Denom == evmDenom {
 		convertedAmount, err := utils.Uint256FromBigInt(evmtypes.ConvertAmountTo18DecimalsBigInt(amount))
 		if err != nil {
+			fmt.Println("ERC20!!!!!! error 33333", err)
 			return nil, err
 		}
 
@@ -148,6 +149,7 @@ func (p *Precompile) transfer(
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {
+		fmt.Println("ERC20!!!!!! error 44444", err)
 		return nil, err
 	}
 
