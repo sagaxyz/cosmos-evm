@@ -104,12 +104,14 @@ func (s StaticPrecompiles) WithICS20Precompile(
 	stakingKeeper stakingkeeper.Keeper,
 	transferKeeper *transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
+	erc20Keeper *erc20Keeper.Keeper,
 ) StaticPrecompiles {
 	ibcTransferPrecompile := ics20precompile.NewPrecompile(
 		bankKeeper,
 		stakingKeeper,
 		transferKeeper,
 		channelKeeper,
+		erc20Keeper,
 	)
 
 	s[ibcTransferPrecompile.Address()] = ibcTransferPrecompile
