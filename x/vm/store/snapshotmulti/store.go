@@ -3,6 +3,7 @@ package snapshotmulti
 import (
 	"fmt"
 	"io"
+	"runtime/debug"
 	"sort"
 
 	"github.com/cosmos/evm/x/vm/store/snapshotkv"
@@ -115,7 +116,7 @@ func (s *Store) CacheMultiStoreWithVersion(_ int64) (storetypes.CacheMultiStore,
 func (s *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
 	store := s.stores[key]
 	if key == nil || store == nil {
-		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
+		panic(fmt.Sprintf("kv store with key %v has not been registered in stores, stack 1: %s", key, string(debug.Stack())))
 	}
 	return store.CurrentStore()
 }
@@ -124,7 +125,7 @@ func (s *Store) GetStore(key storetypes.StoreKey) storetypes.Store {
 func (s *Store) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
 	store := s.stores[key]
 	if key == nil || store == nil {
-		panic(fmt.Sprintf("kv store with key %v has not been registered in stores", key))
+		panic(fmt.Sprintf("kv store with key %v has not been registered in stores, stack 2: %s", key, string(debug.Stack())))
 	}
 	return store.CurrentStore()
 }
