@@ -2,11 +2,14 @@ package ics20
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	cmn "github.com/cosmos/evm/precompiles/common"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	connectiontypes "github.com/cosmos/ibc-go/v10/modules/core/03-connection/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
@@ -137,6 +140,53 @@ func (p *Precompile) Transfer(
 		msg.Memo,
 	); err != nil {
 		return nil, err
+	}
+
+	// get ERC20 contract address for the token denom, and only emit the event if it is an ERC20 token (or has been registered)
+	tokenPairID := p.erc20Keeper.GetTokenPairID(ctx, msg.Token.Denom)
+	found := false
+	var tokenPair erc20types.TokenPair
+
+	if len(tokenPairID) != 0 {
+		tokenPair, found = p.erc20Keeper.GetTokenPair(ctx, tokenPairID)
+
+		shouldBurn := false
+		// deconstruct the token denomination into the denomination trace info
+		// to determine if the sender is the source chain
+		if strings.HasPrefix(tokenPair.Denom, "ibc/") {
+			denomData, err := p.transferKeeper.Denom(ctx, &transfertypes.QueryDenomRequest{
+				Hash: tokenPair.Denom,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			// if the denom is prefixed by the port and channel on which we are sending
+			// the token, then we must be returning the token back to the chain they originated from
+			shouldBurn = denomData.Denom.HasPrefix(msg.SourcePort, msg.SourceChannel)
+		}
+
+		// This mimics the behavior of the IBC transfer module, by emitting transfers to the burn address
+		// if the sender is the source chain, and to the escrow address if the sender is the destination chain
+		if found {
+			erc20Addr := tokenPair.GetERC20Contract()
+			if shouldBurn {
+				// Emit Transfer event sending the tokens to the null address to show a burn
+				if err := EmitTransferEvent(ctx, stateDB, erc20Addr, sender, common.HexToAddress("0x0000000000000000000000000000000000000000"), msg.Token.Amount.BigInt()); err != nil {
+					return nil, err
+				}
+			} else {
+				// obtain the escrow address for the source channel end
+				escrowAddress := transfertypes.GetEscrowAddress(msg.SourcePort, msg.SourceChannel)
+				escrowHexAddr := common.BytesToAddress(escrowAddress)
+
+				// Emit Transfer event sending the tokens to the escrow address
+				if err := EmitTransferEvent(ctx, stateDB, erc20Addr, sender, escrowHexAddr, msg.Token.Amount.BigInt()); err != nil {
+					return nil, err
+				}
+			}
+
+		}
 	}
 
 	return method.Outputs.Pack(res.Sequence)
