@@ -36,7 +36,6 @@ type MonoDecorator struct {
 	maxGasWanted    uint64
 	evmParams       *evmtypes.Params
 	feemarketParams *feemarkettypes.Params
-	skipGasCheckFn  func(ctx sdk.Context, tx sdk.Tx) bool
 }
 
 // NewEVMMonoDecorator creates the 'mono' decorator, that is used to run the ante handle logic
@@ -52,7 +51,6 @@ func NewEVMMonoDecorator(
 	maxGasWanted uint64,
 	evmParams *evmtypes.Params,
 	feemarketParams *feemarkettypes.Params,
-	skipGasCheckFn func(ctx sdk.Context, tx sdk.Tx) bool,
 ) MonoDecorator {
 	return MonoDecorator{
 		accountKeeper:   accountKeeper,
@@ -61,7 +59,6 @@ func NewEVMMonoDecorator(
 		maxGasWanted:    maxGasWanted,
 		evmParams:       evmParams,
 		feemarketParams: feemarketParams,
-		skipGasCheckFn:  skipGasCheckFn,
 	}
 }
 
@@ -130,13 +127,12 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	gas := ethTx.Gas()
 	fee := sdkmath.LegacyNewDecFromBigInt(feeAmt)
 	gasLimit := sdkmath.LegacyNewDecFromBigInt(new(big.Int).SetUint64(gas))
-	skipGasCheck := md.skipGasCheckFn(ctx, tx)
 
 	// TODO: computation for mempool and global fee can be made using only
 	// the price instead of the fee. This would save some computation.
 	//
 	// 2. mempool inclusion fee
-	if ctx.IsCheckTx() && !simulate && !skipGasCheck {
+	if ctx.IsCheckTx() && !simulate {
 		// FIX: Mempool dec should be converted
 		if err := CheckMempoolFee(fee, decUtils.MempoolMinGasPrice, gasLimit, decUtils.Rules.IsLondon); err != nil {
 			return ctx, err
@@ -154,10 +150,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	}
 
 	// 3. min gas price (global min fee)
-	if !skipGasCheck {
-		if err := CheckGlobalFee(fee, decUtils.GlobalMinGasPrice, gasLimit); err != nil {
-			return ctx, err
-		}
+	if err := CheckGlobalFee(fee, decUtils.GlobalMinGasPrice, gasLimit); err != nil {
+		return ctx, err
 	}
 
 	// 4. validate msg contents
@@ -185,57 +179,52 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	// using a wrapper of the bank keeper as a dependency to scale all
 	// balances to 18 decimals.
 	account := md.evmKeeper.GetAccount(ctx, fromAddr)
-	if !skipGasCheck {
-		if err := VerifyAccountBalance(
-			ctx,
-			md.evmKeeper,
-			md.accountKeeper,
-			account,
-			fromAddr,
-			ethTx,
-		); err != nil {
-			return ctx, err
-		}
+	if err := VerifyAccountBalance(
+		ctx,
+		md.evmKeeper,
+		md.accountKeeper,
+		account,
+		fromAddr,
+		ethTx,
+	); err != nil {
+		return ctx, err
 	}
 
 	// 7. can transfer
 	coreMsg := ethMsg.AsMessage(decUtils.BaseFee)
-	if !skipGasCheck {
-		if err := CanTransfer(
-			ctx,
-			md.evmKeeper,
-			*coreMsg,
-			coreMsg.GasFeeCap,
-			decUtils.BaseFee,
-			decUtils.EvmParams,
-			decUtils.Rules.IsLondon,
-		); err != nil {
-			return ctx, err
-		}
+	if err := CanTransfer(
+		ctx,
+		md.evmKeeper,
+		*coreMsg,
+		coreMsg.GasFeeCap,
+		decUtils.BaseFee,
+		decUtils.EvmParams,
+		decUtils.Rules.IsLondon,
+	); err != nil {
+		return ctx, err
+	}
+	// 8. gas consumption
+	msgFees, err := evmkeeper.VerifyFee(
+		ethTx,
+		evmDenom,
+		decUtils.BaseFee,
+		decUtils.Rules.IsHomestead,
+		decUtils.Rules.IsIstanbul,
+		decUtils.Rules.IsShanghai,
+		ctx.IsCheckTx(),
+	)
+	if err != nil {
+		return ctx, err
+	}
 
-		// 8. gas consumption
-		msgFees, err := evmkeeper.VerifyFee(
-			ethTx,
-			evmDenom,
-			decUtils.BaseFee,
-			decUtils.Rules.IsHomestead,
-			decUtils.Rules.IsIstanbul,
-			decUtils.Rules.IsShanghai,
-			ctx.IsCheckTx(),
-		)
-		if err != nil {
-			return ctx, err
-		}
-
-		err = ConsumeFeesAndEmitEvent(
-			ctx,
-			md.evmKeeper,
-			msgFees,
-			from,
-		)
-		if err != nil {
-			return ctx, err
-		}
+	err = ConsumeFeesAndEmitEvent(
+		ctx,
+		md.evmKeeper,
+		msgFees,
+		from,
+	)
+	if err != nil {
+		return ctx, err
 	}
 
 	gasWanted := UpdateCumulativeGasWanted(
@@ -285,10 +274,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	txIdx := uint64(msgIndex) //nolint:gosec // G115
 	EmitTxHashEvent(ctx, ethMsg, decUtils.BlockTxIndex, txIdx)
 
-	if !skipGasCheck {
-		if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
-			return ctx, err
-		}
+	if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
+		return ctx, err
 	}
 
 	ctx, err = CheckBlockGasLimit(ctx, decUtils.GasWanted, decUtils.MinPriority)

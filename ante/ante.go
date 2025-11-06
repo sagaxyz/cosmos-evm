@@ -34,7 +34,6 @@ type HandlerOptions struct {
 	// use dynamic fee checker or the cosmos-sdk default one for native transactions
 	DynamicFeeChecker bool
 	PendingTxListener PendingTxListener
-	SkipGasCheckFn    func(ctx sdk.Context, tx sdk.Tx) bool
 }
 
 // Validate checks if the keepers are defined
@@ -86,7 +85,7 @@ func NewAnteHandler(options HandlerOptions) sdk.AnteHandler {
 				switch typeURL := opts[0].GetTypeUrl(); typeURL {
 				case "/cosmos.evm.vm.v1.ExtensionOptionsEthereumTx":
 					// handle as *evmtypes.MsgEthereumTx
-					anteHandler = newMonoEVMAnteHandler(ctx, options, options.SkipGasCheckFn)
+					anteHandler = newMonoEVMAnteHandler(ctx, options)
 				case "/cosmos.evm.ante.v1.ExtensionOptionDynamicFeeTx":
 					// cosmos-sdk tx with dynamic fee extension
 					anteHandler = newCosmosAnteHandler(ctx, options)
