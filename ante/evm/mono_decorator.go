@@ -203,6 +203,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	); err != nil {
 		return ctx, err
 	}
+
 	// 8. gas consumption
 	msgFees, err := evmkeeper.VerifyFee(
 		ethTx,
