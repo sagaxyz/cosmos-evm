@@ -86,7 +86,7 @@ func EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, precompileAddr, from
 	arguments := abi.Arguments{
 		{
 			Name:    "value",
-			Type:    abi.Type{T: abi.IntTy, Size: 256},
+			Type:    abi.Type{T: abi.UintTy, Size: 256},
 			Indexed: false,
 		},
 	}
