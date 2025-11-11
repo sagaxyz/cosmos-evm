@@ -1,11 +1,14 @@
 package ics20
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 
+	"github.com/cosmos/evm/contracts"
 	cmn "github.com/cosmos/evm/precompiles/common"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -56,6 +59,47 @@ func EmitIBCTransferEvent(
 		Topics:      topics,
 		Data:        packed,
 		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115 // won't exceed uint64
+	})
+
+	return nil
+}
+
+// EmitTransferEvent creates a new Transfer event emitted (ERC20). In order to show the IBC transfer in the block explorer.
+func EmitTransferEvent(ctx sdk.Context, stateDB vm.StateDB, precompileAddr, from, to common.Address, value *big.Int) error {
+	// Prepare the event topics
+	topics := make([]common.Hash, 3)
+
+	// The first topic is always the signature of the event.
+	topics[0] = contracts.ERC20MinterBurnerDecimalsContract.ABI.Events["Transfer"].ID
+
+	var err error
+	topics[1], err = cmn.MakeTopic(from)
+	if err != nil {
+		return err
+	}
+
+	topics[2], err = cmn.MakeTopic(to)
+	if err != nil {
+		return err
+	}
+
+	arguments := abi.Arguments{
+		{
+			Name:    "value",
+			Type:    abi.Type{T: abi.UintTy, Size: 256},
+			Indexed: false,
+		},
+	}
+	packed, err := arguments.Pack(value)
+	if err != nil {
+		return err
+	}
+
+	stateDB.AddLog(&ethtypes.Log{
+		Address:     precompileAddr,
+		Topics:      topics,
+		Data:        packed,
+		BlockNumber: uint64(ctx.BlockHeight()), //nolint:gosec // G115
 	})
 
 	return nil
