@@ -49,6 +49,22 @@ func DecodeTxResponse(in []byte) (*MsgEthereumTxResponse, error) {
 	return responses[0], nil
 }
 
+// LegacyMsgEthereumTxResponse is the pre-upgrade MsgEthereumTxResponse format
+// without block_hash (field 7) and block_timestamp (field 8) fields.
+// Used for backward compatibility when reading historical transaction responses.
+type LegacyMsgEthereumTxResponse struct {
+	Hash       string `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	Logs       []*Log `protobuf:"bytes,2,rep,name=logs,proto3" json:"logs,omitempty"`
+	Ret        []byte `protobuf:"bytes,3,opt,name=ret,proto3" json:"ret,omitempty"`
+	VMError    string `protobuf:"bytes,4,opt,name=vm_error,json=vmError,proto3" json:"vm_error,omitempty"`
+	GasUsed    uint64 `protobuf:"varint,5,opt,name=gas_used,json=gasUsed,proto3" json:"gas_used,omitempty"`
+	MaxUsedGas uint64 `protobuf:"varint,6,opt,name=max_used_gas,json=maxUsedGas,proto3" json:"max_used_gas,omitempty"`
+}
+
+func (*LegacyMsgEthereumTxResponse) Reset()         {}
+func (*LegacyMsgEthereumTxResponse) String() string { return "" }
+func (*LegacyMsgEthereumTxResponse) ProtoMessage()  {}
+
 // DecodeTxResponses decodes a protobuf-encoded byte slice into TxResponses
 func DecodeTxResponses(in []byte) ([]*MsgEthereumTxResponse, error) {
 	if in == nil {
@@ -56,17 +72,42 @@ func DecodeTxResponses(in []byte) ([]*MsgEthereumTxResponse, error) {
 	}
 	var txMsgData sdk.TxMsgData
 	if err := proto.Unmarshal(in, &txMsgData); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal TxMsgData: %w", err)
 	}
+
+	if len(txMsgData.MsgResponses) == 0 {
+		// No EVM transactions in this block, return empty
+		return nil, nil
+	}
+
 	responses := make([]*MsgEthereumTxResponse, 0, len(txMsgData.MsgResponses))
 	for _, res := range txMsgData.MsgResponses {
 		var response MsgEthereumTxResponse
-		if res.TypeUrl != "/"+proto.MessageName(&response) {
+		currentTypeURL := "/" + proto.MessageName(&response)
+		legacyTypeURL := "/ethermint.evm.v1.MsgEthereumTxResponse"
+
+		// Check if this is an EVM tx response (current or legacy format)
+		if res.TypeUrl != currentTypeURL && res.TypeUrl != legacyTypeURL {
 			continue
 		}
+		// Try unmarshaling with current schema first
 		err := proto.Unmarshal(res.Value, &response)
 		if err != nil {
-			return nil, errorsmod.Wrap(err, "failed to unmarshal tx response message data")
+			// Fallback to legacy schema (without block_hash and block_timestamp fields)
+			var legacyResp LegacyMsgEthereumTxResponse
+			if legacyErr := proto.Unmarshal(res.Value, &legacyResp); legacyErr != nil {
+				return nil, errorsmod.Wrap(err, "failed to unmarshal tx response message data")
+			}
+			// Convert legacy response to current format
+			response = MsgEthereumTxResponse{
+				Hash:       legacyResp.Hash,
+				Logs:       legacyResp.Logs,
+				Ret:        legacyResp.Ret,
+				VmError:    legacyResp.VMError,
+				GasUsed:    legacyResp.GasUsed,
+				MaxUsedGas: legacyResp.MaxUsedGas,
+				// BlockHash and BlockTimestamp will be filled later by logsFromTxResponse
+			}
 		}
 		responses = append(responses, &response)
 	}
