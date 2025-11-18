@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -13,15 +15,16 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// LegacyParams defines the EVM module parameters before HistoryServeWindow was added.
+// LegacyParams defines the EVM module parameters from evmos v0.13 format.
 // Used for backward compatibility with pre-v0.14 state.
 type LegacyParams struct {
-	EvmDenom                string                      `protobuf:"bytes,1,opt,name=evm_denom,json=evmDenom,proto3" json:"evm_denom,omitempty"`
-	ExtraEIPs               []int64                     `protobuf:"varint,4,rep,packed,name=extra_eips,json=extraEips,proto3" json:"extra_eips,omitempty"`
-	EVMChannels             []string                    `protobuf:"bytes,7,rep,name=evm_channels,json=evmChannels,proto3" json:"evm_channels,omitempty"`
-	AccessControl           types.AccessControl         `protobuf:"bytes,8,opt,name=access_control,json=accessControl,proto3" json:"access_control"`
-	ActiveStaticPrecompiles []string                    `protobuf:"bytes,9,rep,name=active_static_precompiles,json=activeStaticPrecompiles,proto3" json:"active_static_precompiles,omitempty"`
-	ExtendedDenomOptions    *types.ExtendedDenomOptions `protobuf:"bytes,11,opt,name=extended_denom_options,json=extendedDenomOptions,proto3" json:"extended_denom_options,omitempty"`
+	EvmDenom                string              `protobuf:"bytes,1,opt,name=evm_denom,json=evmDenom,proto3" json:"evm_denom,omitempty"`
+	ExtraEIPs               []string            `protobuf:"bytes,4,rep,name=extra_eips,json=extraEips,proto3" json:"extra_eips,omitempty"`
+	ChainConfig             types.ChainConfig   `protobuf:"bytes,5,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config"`
+	AllowUnprotectedTxs     bool                `protobuf:"varint,6,opt,name=allow_unprotected_txs,json=allowUnprotectedTxs,proto3" json:"allow_unprotected_txs,omitempty"`
+	EVMChannels             []string            `protobuf:"bytes,8,rep,name=evm_channels,json=evmChannels,proto3" json:"evm_channels,omitempty"`
+	AccessControl           types.AccessControl `protobuf:"bytes,9,opt,name=access_control,json=accessControl,proto3" json:"access_control"`
+	ActiveStaticPrecompiles []string            `protobuf:"bytes,10,rep,name=active_static_precompiles,json=activeStaticPrecompiles,proto3" json:"active_static_precompiles,omitempty"`
 }
 
 func (*LegacyParams) Reset()         {}
@@ -43,20 +46,40 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 
 	// Fallback to legacy format (pre-v0.14, evmos-originated)
 	var legacyParams LegacyParams
-	if err := k.cdc.Unmarshal(bz, &legacyParams); err != nil {
-		// Both formats failed, panic as this is a critical error
-		panic(fmt.Sprintf("failed to unmarshal params in both new and legacy format: %v", err))
+	if legacyErr := k.cdc.Unmarshal(bz, &legacyParams); legacyErr != nil {
+		// Both formats failed - log the error and return default params
+		// This can happen with very old data formats or corrupted state
+		ctx.Logger().Error(
+			"failed to unmarshal params in both new and legacy format, using defaults",
+			"error", legacyErr,
+			"height", ctx.BlockHeight(),
+			"data_len", len(bz),
+		)
+		return types.DefaultParams()
 	}
 
 	// Convert legacy params to current format
+	// Convert ExtraEIPs from []string to []int64
+	extraEIPs := make([]int64, 0, len(legacyParams.ExtraEIPs))
+	for _, eipStr := range legacyParams.ExtraEIPs {
+		// evmos format: "ethereum_1234" or just "1234"
+		eipStr = strings.TrimPrefix(eipStr, "ethereum_")
+		eipInt, err := strconv.ParseInt(eipStr, 10, 64)
+		if err != nil {
+			ctx.Logger().Error("failed to parse EIP number, skipping", "eip", eipStr, "error", err)
+			continue
+		}
+		extraEIPs = append(extraEIPs, eipInt)
+	}
+
 	params = types.Params{
 		EvmDenom:                legacyParams.EvmDenom,
-		ExtraEIPs:               legacyParams.ExtraEIPs,
+		ExtraEIPs:               extraEIPs,
 		EVMChannels:             legacyParams.EVMChannels,
 		AccessControl:           legacyParams.AccessControl,
 		ActiveStaticPrecompiles: legacyParams.ActiveStaticPrecompiles,
 		HistoryServeWindow:      types.DefaultHistoryServeWindow,
-		ExtendedDenomOptions:    legacyParams.ExtendedDenomOptions,
+		ExtendedDenomOptions:    &types.ExtendedDenomOptions{ExtendedDenom: legacyParams.EvmDenom},
 	}
 
 	return params
