@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
@@ -65,14 +66,16 @@ func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
 		if acc := k.accountKeeper.GetAccount(ctx, cosmosAddr); acc != nil {
 			ctx.Logger().Info("GetCodeHash fallback: found account", "address", addr.Hex(), "type", fmt.Sprintf("%T", acc))
 
-			// Try to extract CodeHash from account using reflection/type assertion
-			// This handles legacy EthAccount format that had CodeHash as a field
-			type legacyCodeHashAccount interface {
-				GetCodeHash() string
+			// Use reflection to extract CodeHash field from legacy EthAccount
+			accValue := reflect.ValueOf(acc)
+			if accValue.Kind() == reflect.Ptr {
+				accValue = accValue.Elem()
 			}
-			if legacyAcc, ok := acc.(legacyCodeHashAccount); ok {
-				codeHash := legacyAcc.GetCodeHash()
-				ctx.Logger().Info("GetCodeHash fallback: extracted code hash", "address", addr.Hex(), "codeHash", codeHash)
+
+			codeHashField := accValue.FieldByName("CodeHash")
+			if codeHashField.IsValid() && codeHashField.Kind() == reflect.String {
+				codeHash := codeHashField.String()
+				ctx.Logger().Info("GetCodeHash fallback: extracted code hash via reflection", "address", addr.Hex(), "codeHash", codeHash)
 				if codeHash != "" {
 					codeHashBytes := common.HexToHash(codeHash).Bytes()
 					if !types.IsEmptyCodeHash(codeHashBytes) {
@@ -80,7 +83,7 @@ func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
 					}
 				}
 			} else {
-				ctx.Logger().Info("GetCodeHash fallback: account does not implement GetCodeHash interface", "address", addr.Hex())
+				ctx.Logger().Info("GetCodeHash fallback: CodeHash field not found or invalid", "address", addr.Hex())
 			}
 		} else {
 			ctx.Logger().Info("GetCodeHash fallback: no account found", "address", addr.Hex())
