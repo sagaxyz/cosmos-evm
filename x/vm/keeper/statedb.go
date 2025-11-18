@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -62,6 +63,8 @@ func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
 		// In pre-migration state, code hash was stored in the EthAccount type, not separately
 		cosmosAddr := sdk.AccAddress(addr.Bytes())
 		if acc := k.accountKeeper.GetAccount(ctx, cosmosAddr); acc != nil {
+			ctx.Logger().Info("GetCodeHash fallback: found account", "address", addr.Hex(), "type", fmt.Sprintf("%T", acc))
+
 			// Try to extract CodeHash from account using reflection/type assertion
 			// This handles legacy EthAccount format that had CodeHash as a field
 			type legacyCodeHashAccount interface {
@@ -69,13 +72,18 @@ func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
 			}
 			if legacyAcc, ok := acc.(legacyCodeHashAccount); ok {
 				codeHash := legacyAcc.GetCodeHash()
+				ctx.Logger().Info("GetCodeHash fallback: extracted code hash", "address", addr.Hex(), "codeHash", codeHash)
 				if codeHash != "" {
 					codeHashBytes := common.HexToHash(codeHash).Bytes()
 					if !types.IsEmptyCodeHash(codeHashBytes) {
 						return common.BytesToHash(codeHashBytes)
 					}
 				}
+			} else {
+				ctx.Logger().Info("GetCodeHash fallback: account does not implement GetCodeHash interface", "address", addr.Hex())
 			}
+		} else {
+			ctx.Logger().Info("GetCodeHash fallback: no account found", "address", addr.Hex())
 		}
 		return common.BytesToHash(types.EmptyCodeHash)
 	}
