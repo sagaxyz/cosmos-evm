@@ -13,6 +13,21 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// LegacyParams defines the EVM module parameters before HistoryServeWindow was added.
+// Used for backward compatibility with pre-v0.14 state.
+type LegacyParams struct {
+	EvmDenom                string                      `protobuf:"bytes,1,opt,name=evm_denom,json=evmDenom,proto3" json:"evm_denom,omitempty"`
+	ExtraEIPs               []int64                     `protobuf:"varint,4,rep,packed,name=extra_eips,json=extraEips,proto3" json:"extra_eips,omitempty"`
+	EVMChannels             []string                    `protobuf:"bytes,7,rep,name=evm_channels,json=evmChannels,proto3" json:"evm_channels,omitempty"`
+	AccessControl           types.AccessControl         `protobuf:"bytes,8,opt,name=access_control,json=accessControl,proto3" json:"access_control"`
+	ActiveStaticPrecompiles []string                    `protobuf:"bytes,9,rep,name=active_static_precompiles,json=activeStaticPrecompiles,proto3" json:"active_static_precompiles,omitempty"`
+	ExtendedDenomOptions    *types.ExtendedDenomOptions `protobuf:"bytes,11,opt,name=extended_denom_options,json=extendedDenomOptions,proto3" json:"extended_denom_options,omitempty"`
+}
+
+func (*LegacyParams) Reset()         {}
+func (*LegacyParams) String() string { return "" }
+func (*LegacyParams) ProtoMessage()  {}
+
 // GetParams returns the total set of evm parameters.
 func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	store := ctx.KVStore(k.storeKey)
@@ -20,8 +35,31 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	if bz == nil {
 		return params
 	}
-	k.cdc.MustUnmarshal(bz, &params)
-	return
+
+	// Try new format (post-upgrade) first
+	if err := k.cdc.Unmarshal(bz, &params); err == nil {
+		return params
+	}
+
+	// Fallback to legacy format (pre-v0.14, evmos-originated)
+	var legacyParams LegacyParams
+	if err := k.cdc.Unmarshal(bz, &legacyParams); err != nil {
+		// Both formats failed, panic as this is a critical error
+		panic(fmt.Sprintf("failed to unmarshal params in both new and legacy format: %v", err))
+	}
+
+	// Convert legacy params to current format
+	params = types.Params{
+		EvmDenom:                legacyParams.EvmDenom,
+		ExtraEIPs:               legacyParams.ExtraEIPs,
+		EVMChannels:             legacyParams.EVMChannels,
+		AccessControl:           legacyParams.AccessControl,
+		ActiveStaticPrecompiles: legacyParams.ActiveStaticPrecompiles,
+		HistoryServeWindow:      types.DefaultHistoryServeWindow,
+		ExtendedDenomOptions:    legacyParams.ExtendedDenomOptions,
+	}
+
+	return params
 }
 
 // SetParams sets the EVM params each in their individual key for better get performance
