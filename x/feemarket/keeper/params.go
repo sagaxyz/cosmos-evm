@@ -18,14 +18,7 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 		return types.DefaultParams()
 	}
 
-	// Try to unmarshal params
-	err := k.cdc.Unmarshal(bz, &params)
-	if err != nil {
-		// If unmarshal fails, it might be due to schema changes from upgrades
-		// Log the error and return default params to maintain backward compatibility
-		k.Logger(ctx).Debug("failed to unmarshal fee market params, using defaults", "error", err)
-		return types.DefaultParams()
-	}
+	k.cdc.MustUnmarshal(bz, &params)
 
 	return params
 }
