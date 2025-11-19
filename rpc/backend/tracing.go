@@ -165,7 +165,19 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		b.Logger.Debug("block result not found", "height", block.Block.Height, "error", err.Error())
 		return nil, nil
 	}
-	txDecoder := b.ClientCtx.TxConfig.TxDecoder()
+
+	// Create a decoder wrapper that tries current format first, then legacy format
+	baseTxDecoder := b.ClientCtx.TxConfig.TxDecoder()
+	txDecoder := func(txBytes []byte) (sdk.Tx, error) {
+		// Try current format first
+		tx, err := baseTxDecoder(txBytes)
+		if err != nil {
+			// Try legacy format - use the same decodeLegacyTx from tx_info.go
+			b.Logger.Debug("decoding failed for current format, trying legacy", "error", err.Error())
+			return decodeLegacyTx(baseTxDecoder, txBytes)
+		}
+		return tx, nil
+	}
 
 	var txsMessages []*evmtypes.MsgEthereumTx
 	for i, tx := range txs {
