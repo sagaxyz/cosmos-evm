@@ -48,7 +48,12 @@ func (b *Backend) GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransac
 
 	tx, err := b.ClientCtx.TxConfig.TxDecoder()(block.Block.Txs[res.TxIndex])
 	if err != nil {
-		return nil, err
+		// Try legacy format
+		b.Logger.Debug("decoding failed for current format, trying legacy", "txHash", txHash.Hex(), "error", err.Error())
+		tx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), block.Block.Txs[res.TxIndex])
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode transaction: %w", err)
+		}
 	}
 
 	// the `res.MsgIndex` is inferred from tx index, should be within the bound.
