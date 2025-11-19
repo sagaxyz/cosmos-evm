@@ -443,13 +443,13 @@ func (m *MsgUpdateParamsResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
 func init() {
-	// NOTE: Proto registration disabled to avoid conflicts with main package
-	// This package only needs struct definitions for unmarshaling legacy Evmos v0.13 data
+	// NOTE: Most proto registrations disabled to avoid conflicts with main package
+	// Only ExtensionOptionsEthereumTx is registered for historical transaction decoding
 	// proto.RegisterType((*MsgEthereumTx)(nil), "ethermint.evm.v1.MsgEthereumTx")
 	// proto.RegisterType((*LegacyTx)(nil), "ethermint.evm.v1.LegacyTx")
 	// proto.RegisterType((*AccessListTx)(nil), "ethermint.evm.v1.AccessListTx")
 	// proto.RegisterType((*DynamicFeeTx)(nil), "ethermint.evm.v1.DynamicFeeTx")
-	// proto.RegisterType((*ExtensionOptionsEthereumTx)(nil), "ethermint.evm.v1.ExtensionOptionsEthereumTx")
+	proto.RegisterType((*ExtensionOptionsEthereumTx)(nil), "ethermint.evm.v1.ExtensionOptionsEthereumTx")
 	// proto.RegisterType((*MsgEthereumTxResponse)(nil), "ethermint.evm.v1.MsgEthereumTxResponse")
 	// proto.RegisterType((*MsgUpdateParams)(nil), "ethermint.evm.v1.MsgUpdateParams")
 	// proto.RegisterType((*MsgUpdateParamsResponse)(nil), "ethermint.evm.v1.MsgUpdateParamsResponse")

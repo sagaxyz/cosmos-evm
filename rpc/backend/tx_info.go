@@ -208,12 +208,12 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	if res.MsgIndex >= uint32(len(msgs)) {
 		return nil, fmt.Errorf("msg index %d out of range (tx has %d messages)", res.MsgIndex, len(msgs))
 	}
-	
+
 	ethMsg, ok := msgs[res.MsgIndex].(*evmtypes.MsgEthereumTx)
 	if !ok {
 		return nil, fmt.Errorf("message at index %d is not MsgEthereumTx, got %T", res.MsgIndex, msgs[res.MsgIndex])
 	}
-	
+
 	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
@@ -647,7 +647,7 @@ func decodeLegacyTx(cdc sdk.TxDecoder, txBytes []byte) (sdk.Tx, error) {
 			if err := proto.Unmarshal(anyMsg.Value, &evmosMsg); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal legacy msg: %w", err)
 			}
-			
+
 			// Convert to our LegacyMsgEthereumTx wrapper
 			legacyMsg := &evmtypes.LegacyMsgEthereumTx{
 				Data: evmosMsg.Data,
