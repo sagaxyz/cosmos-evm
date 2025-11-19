@@ -12,4 +12,11 @@ func RegisterLegacyInterfaces(registry codectypes.InterfaceRegistry) {
 		(*tx.TxExtensionOptionI)(nil),
 		&ExtensionOptionsEthereumTx{},
 	)
+
+	// Also register the concrete type for Any unmarshaling
+	registry.RegisterInterface(
+		"ethermint.evm.v1.ExtensionOptionsEthereumTx",
+		(*tx.TxExtensionOptionI)(nil),
+		&ExtensionOptionsEthereumTx{},
+	)
 }
