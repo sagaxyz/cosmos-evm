@@ -5,9 +5,13 @@ package evmos
 
 import (
 	context "context"
-	cosmossdk_io_math "cosmossdk.io/math"
 	encoding_binary "encoding/binary"
 	fmt "fmt"
+	io "io"
+	math "math"
+	math_bits "math/bits"
+
+	cosmossdk_io_math "cosmossdk.io/math"
 	_ "github.com/cosmos/cosmos-proto"
 	types "github.com/cosmos/cosmos-sdk/codec/types"
 	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
@@ -19,9 +23,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	io "io"
-	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -442,17 +443,22 @@ func (m *MsgUpdateParamsResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*MsgEthereumTx)(nil), "ethermint.evm.v1.MsgEthereumTx")
-	proto.RegisterType((*LegacyTx)(nil), "ethermint.evm.v1.LegacyTx")
-	proto.RegisterType((*AccessListTx)(nil), "ethermint.evm.v1.AccessListTx")
-	proto.RegisterType((*DynamicFeeTx)(nil), "ethermint.evm.v1.DynamicFeeTx")
-	proto.RegisterType((*ExtensionOptionsEthereumTx)(nil), "ethermint.evm.v1.ExtensionOptionsEthereumTx")
-	proto.RegisterType((*MsgEthereumTxResponse)(nil), "ethermint.evm.v1.MsgEthereumTxResponse")
-	proto.RegisterType((*MsgUpdateParams)(nil), "ethermint.evm.v1.MsgUpdateParams")
-	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "ethermint.evm.v1.MsgUpdateParamsResponse")
+	// NOTE: Proto registration disabled to avoid conflicts with main package
+	// This package only needs struct definitions for unmarshaling legacy Evmos v0.13 data
+	// proto.RegisterType((*MsgEthereumTx)(nil), "ethermint.evm.v1.MsgEthereumTx")
+	// proto.RegisterType((*LegacyTx)(nil), "ethermint.evm.v1.LegacyTx")
+	// proto.RegisterType((*AccessListTx)(nil), "ethermint.evm.v1.AccessListTx")
+	// proto.RegisterType((*DynamicFeeTx)(nil), "ethermint.evm.v1.DynamicFeeTx")
+	// proto.RegisterType((*ExtensionOptionsEthereumTx)(nil), "ethermint.evm.v1.ExtensionOptionsEthereumTx")
+	// proto.RegisterType((*MsgEthereumTxResponse)(nil), "ethermint.evm.v1.MsgEthereumTxResponse")
+	// proto.RegisterType((*MsgUpdateParams)(nil), "ethermint.evm.v1.MsgUpdateParams")
+	// proto.RegisterType((*MsgUpdateParamsResponse)(nil), "ethermint.evm.v1.MsgUpdateParamsResponse")
 }
 
-func init() { proto.RegisterFile("ethermint/evm/v1/tx.proto", fileDescriptor_f75ac0a12d075f21) }
+func init() {
+	// NOTE: Proto file registration disabled to avoid conflicts with main package
+	// proto.RegisterFile("ethermint/evm/v1/tx.proto", fileDescriptor_f75ac0a12d075f21)
+}
 
 var fileDescriptor_f75ac0a12d075f21 = []byte{
 	// 1038 bytes of a gzipped FileDescriptorProto

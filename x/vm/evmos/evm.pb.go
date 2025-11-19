@@ -4,14 +4,15 @@
 package evmos
 
 import (
-	cosmossdk_io_math "cosmossdk.io/math"
 	fmt "fmt"
-	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
-	_ "github.com/cosmos/gogoproto/gogoproto"
-	proto "github.com/cosmos/gogoproto/proto"
 	io "io"
 	math "math"
 	math_bits "math/bits"
+
+	cosmossdk_io_math "cosmossdk.io/math"
+	_ "github.com/cosmos/cosmos-sdk/types/tx/amino"
+	_ "github.com/cosmos/gogoproto/gogoproto"
+	proto "github.com/cosmos/gogoproto/proto"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -833,20 +834,25 @@ func (m *TraceConfig) GetTracerJsonConfig() string {
 }
 
 func init() {
-	proto.RegisterEnum("ethermint.evm.v1.AccessType", AccessType_name, AccessType_value)
-	proto.RegisterType((*Params)(nil), "ethermint.evm.v1.Params")
-	proto.RegisterType((*AccessControl)(nil), "ethermint.evm.v1.AccessControl")
-	proto.RegisterType((*AccessControlType)(nil), "ethermint.evm.v1.AccessControlType")
-	proto.RegisterType((*ChainConfig)(nil), "ethermint.evm.v1.ChainConfig")
-	proto.RegisterType((*State)(nil), "ethermint.evm.v1.State")
-	proto.RegisterType((*TransactionLogs)(nil), "ethermint.evm.v1.TransactionLogs")
-	proto.RegisterType((*Log)(nil), "ethermint.evm.v1.Log")
-	proto.RegisterType((*TxResult)(nil), "ethermint.evm.v1.TxResult")
-	proto.RegisterType((*AccessTuple)(nil), "ethermint.evm.v1.AccessTuple")
-	proto.RegisterType((*TraceConfig)(nil), "ethermint.evm.v1.TraceConfig")
+	// NOTE: Proto registration disabled to avoid conflicts with main package
+	// This package only needs struct definitions for unmarshaling legacy Evmos v0.13 data
+	// proto.RegisterEnum("ethermint.evm.v1.AccessType", AccessType_name, AccessType_value)
+	// proto.RegisterType((*Params)(nil), "ethermint.evm.v1.Params")
+	// proto.RegisterType((*AccessControl)(nil), "ethermint.evm.v1.AccessControl")
+	// proto.RegisterType((*AccessControlType)(nil), "ethermint.evm.v1.AccessControlType")
+	// proto.RegisterType((*ChainConfig)(nil), "ethermint.evm.v1.ChainConfig")
+	// proto.RegisterType((*State)(nil), "ethermint.evm.v1.State")
+	// proto.RegisterType((*TransactionLogs)(nil), "ethermint.evm.v1.TransactionLogs")
+	// proto.RegisterType((*Log)(nil), "ethermint.evm.v1.Log")
+	// proto.RegisterType((*TxResult)(nil), "ethermint.evm.v1.TxResult")
+	// proto.RegisterType((*AccessTuple)(nil), "ethermint.evm.v1.AccessTuple")
+	// proto.RegisterType((*TraceConfig)(nil), "ethermint.evm.v1.TraceConfig")
 }
 
-func init() { proto.RegisterFile("ethermint/evm/v1/evm.proto", fileDescriptor_d21ecc92c8c8583e) }
+func init() {
+	// NOTE: Proto file registration disabled to avoid conflicts with main package
+	// proto.RegisterFile("ethermint/evm/v1/evm.proto", fileDescriptor_d21ecc92c8c8583e)
+}
 
 var fileDescriptor_d21ecc92c8c8583e = []byte{
 	// 1927 bytes of a gzipped FileDescriptorProto
