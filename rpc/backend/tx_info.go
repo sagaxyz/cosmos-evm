@@ -23,6 +23,7 @@ import (
 	rpctypes "github.com/cosmos/evm/rpc/types"
 	servertypes "github.com/cosmos/evm/server/types"
 	"github.com/cosmos/evm/utils"
+	evmoslegacy "github.com/cosmos/evm/x/vm/evmos"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -203,7 +204,16 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, fmt.Errorf("block result not found at height %d: %w", res.Height, err)
 	}
 
-	ethMsg := tx.GetMsgs()[res.MsgIndex].(*evmtypes.MsgEthereumTx)
+	msgs := tx.GetMsgs()
+	if res.MsgIndex >= uint32(len(msgs)) {
+		return nil, fmt.Errorf("msg index %d out of range (tx has %d messages)", res.MsgIndex, len(msgs))
+	}
+	
+	ethMsg, ok := msgs[res.MsgIndex].(*evmtypes.MsgEthereumTx)
+	if !ok {
+		return nil, fmt.Errorf("message at index %d is not MsgEthereumTx, got %T", res.MsgIndex, msgs[res.MsgIndex])
+	}
+	
 	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
@@ -631,10 +641,19 @@ func decodeLegacyTx(cdc sdk.TxDecoder, txBytes []byte) (sdk.Tx, error) {
 	convertedMsgs := make([]*codectypes.Any, len(cosmosTx.Body.Messages))
 	for i, anyMsg := range cosmosTx.Body.Messages {
 		if anyMsg.TypeUrl == "/ethermint.evm.v1.MsgEthereumTx" {
-			// Unmarshal as legacy MsgEthereumTx
-			var legacyMsg evmtypes.LegacyMsgEthereumTx
-			if err := proto.Unmarshal(anyMsg.Value, &legacyMsg); err != nil {
+			// Unmarshal as legacy MsgEthereumTx using proto.Unmarshal
+			// This works because SagaOS has the ethermint proto types registered
+			var evmosMsg evmoslegacy.MsgEthereumTx
+			if err := proto.Unmarshal(anyMsg.Value, &evmosMsg); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal legacy msg: %w", err)
+			}
+			
+			// Convert to our LegacyMsgEthereumTx wrapper
+			legacyMsg := &evmtypes.LegacyMsgEthereumTx{
+				Data: evmosMsg.Data,
+				Size: evmosMsg.Size_,
+				Hash: evmosMsg.Hash,
+				From: evmosMsg.From,
 			}
 
 			// Convert to current format
