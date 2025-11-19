@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -26,7 +27,10 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/gogoproto/proto"
 )
 
 // GetTransactionByHash returns the Ethereum format transaction identified by Ethereum transaction hash
@@ -180,10 +184,17 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, fmt.Errorf("block not found at height %d: %w", res.Height, err)
 	}
 
-	tx, err := b.ClientCtx.TxConfig.TxDecoder()(resBlock.Block.Txs[res.TxIndex])
+	txBytes := resBlock.Block.Txs[res.TxIndex]
+
+	// Try to decode with current format first
+	tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBytes)
 	if err != nil {
-		b.Logger.Debug("decoding failed", "error", err.Error())
-		return nil, fmt.Errorf("failed to decode tx: %w", err)
+		// Fallback: try decoding as legacy evmos transaction
+		tx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), txBytes)
+		if err != nil {
+			b.Logger.Debug("decoding failed for both current and legacy formats", "error", err.Error())
+			return nil, fmt.Errorf("failed to decode tx: %w", err)
+		}
 	}
 
 	blockRes, err := b.RPCClient.BlockResults(b.Ctx, &res.Height)
@@ -200,6 +211,9 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 
 	var signer ethtypes.Signer
 	ethTx := ethMsg.AsTransaction()
+	if ethTx == nil {
+		return nil, fmt.Errorf("failed to get transaction from message")
+	}
 	if ethTx.Protected() {
 		signer = ethtypes.LatestSignerForChainID(ethTx.ChainId())
 	} else {
@@ -573,4 +587,88 @@ func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum r
 
 	b.Logger.Debug("access list tracer initialized", "tracer", tracer)
 	return tracer, &args, nil
+}
+
+// decodeLegacyTx attempts to decode a legacy evmos transaction and convert it to current format
+// Legacy evmos transactions use a different MsgEthereumTx structure:
+// - Field 1: google.protobuf.Any data
+// - Field 2: double size
+// - Field 3: string hash
+// - Field 4: string from
+// Current format uses:
+// - Field 5: bytes from
+// - Field 6: EthereumTx raw
+func decodeLegacyTx(cdc sdk.TxDecoder, txBytes []byte) (sdk.Tx, error) {
+	legacyTypeURL := []byte("/ethermint.evm.v1.MsgEthereumTx")
+
+	// Check if this actually contains legacy messages
+	if !bytes.Contains(txBytes, legacyTypeURL) {
+		// Not a legacy transaction, decode normally
+		return cdc(txBytes)
+	}
+
+	// Decode the outer Cosmos Tx structure to get the Any-wrapped messages
+	var cosmosTx txtypes.Tx
+	if err := proto.Unmarshal(txBytes, &cosmosTx); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cosmos tx: %w", err)
+	}
+
+	// Check if we have any legacy MsgEthereumTx messages that need conversion
+	hasLegacy := false
+	for _, anyMsg := range cosmosTx.Body.Messages {
+		if anyMsg.TypeUrl == "/ethermint.evm.v1.MsgEthereumTx" {
+			hasLegacy = true
+			break
+		}
+	}
+
+	if !hasLegacy {
+		// No legacy messages, decode normally
+		return cdc(txBytes)
+	}
+
+	// Convert each legacy message to current format
+	convertedMsgs := make([]*codectypes.Any, len(cosmosTx.Body.Messages))
+	for i, anyMsg := range cosmosTx.Body.Messages {
+		if anyMsg.TypeUrl == "/ethermint.evm.v1.MsgEthereumTx" {
+			// Unmarshal as legacy MsgEthereumTx
+			var legacyMsg evmtypes.LegacyMsgEthereumTx
+			if err := proto.Unmarshal(anyMsg.Value, &legacyMsg); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal legacy msg: %w", err)
+			}
+
+			// Convert to current format
+			currentMsg, err := legacyMsg.ConvertToCurrentFormat()
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert legacy msg: %w", err)
+			}
+
+			// Marshal the converted message
+			msgBytes, err := proto.Marshal(currentMsg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal converted msg: %w", err)
+			}
+
+			// Create new Any with current TypeURL
+			convertedMsgs[i] = &codectypes.Any{
+				TypeUrl: "/cosmos.evm.vm.v1.MsgEthereumTx",
+				Value:   msgBytes,
+			}
+		} else {
+			// Keep non-ethereum messages as-is
+			convertedMsgs[i] = anyMsg
+		}
+	}
+
+	// Replace messages in the transaction
+	cosmosTx.Body.Messages = convertedMsgs
+
+	// Re-marshal the transaction with converted messages
+	convertedTxBytes, err := proto.Marshal(&cosmosTx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal converted tx: %w", err)
+	}
+
+	// Decode the converted transaction with the standard codec
+	return cdc(convertedTxBytes)
 }
