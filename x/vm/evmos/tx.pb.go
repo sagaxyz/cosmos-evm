@@ -444,8 +444,8 @@ var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
 func init() {
 	// NOTE: Most proto registrations disabled to avoid conflicts with main package
-	// Only ExtensionOptionsEthereumTx is registered for historical transaction decoding
-	// proto.RegisterType((*MsgEthereumTx)(nil), "ethermint.evm.v1.MsgEthereumTx")
+	// Only MsgEthereumTx and ExtensionOptionsEthereumTx are registered for historical transaction decoding
+	proto.RegisterType((*MsgEthereumTx)(nil), "ethermint.evm.v1.MsgEthereumTx")
 	// proto.RegisterType((*LegacyTx)(nil), "ethermint.evm.v1.LegacyTx")
 	// proto.RegisterType((*AccessListTx)(nil), "ethermint.evm.v1.AccessListTx")
 	// proto.RegisterType((*DynamicFeeTx)(nil), "ethermint.evm.v1.DynamicFeeTx")
