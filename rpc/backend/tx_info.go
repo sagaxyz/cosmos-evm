@@ -399,8 +399,12 @@ func (b *Backend) GetTransactionByBlockAndIndex(block *cmtrpctypes.ResultBlock, 
 	if err == nil {
 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(block.Block.Txs[res.TxIndex])
 		if err != nil {
-			b.Logger.Debug("invalid ethereum tx", "height", block.Block.Header, "index", idx)
-			return nil, nil
+			// Try legacy decoder for pre-upgrade transactions
+			tx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), block.Block.Txs[res.TxIndex])
+			if err != nil {
+				b.Logger.Debug("invalid ethereum tx (both decoders failed)", "height", block.Block.Header, "index", idx, "error", err)
+				return nil, nil
+			}
 		}
 
 		var ok bool
