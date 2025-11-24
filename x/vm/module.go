@@ -89,7 +89,7 @@ func (b AppModuleBasic) RegisterGRPCGatewayRoutes(c client.Context, serveMux *ru
 // RegisterInterfaces registers interfaces and implementations of the evm module.
 func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	types.RegisterInterfaces(registry)
-	// Register legacy Evmos v0.13 types for historical transaction decoding
+	// Register legacy Evmos types for historical transaction decoding
 	evmoslegacy.RegisterLegacyInterfaces(registry)
 }
 

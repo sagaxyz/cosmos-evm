@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	legacyevm "github.com/cosmos/evm/x/vm/evmos"
 	"github.com/cosmos/gogoproto/proto"
 
 	errorsmod "cosmossdk.io/errors"
@@ -49,22 +50,6 @@ func DecodeTxResponse(in []byte) (*MsgEthereumTxResponse, error) {
 	return responses[0], nil
 }
 
-// LegacyMsgEthereumTxResponse is the pre-upgrade MsgEthereumTxResponse format
-// without block_hash (field 7) and block_timestamp (field 8) fields.
-// Used for backward compatibility when reading historical transaction responses.
-type LegacyMsgEthereumTxResponse struct {
-	Hash       string `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
-	Logs       []*Log `protobuf:"bytes,2,rep,name=logs,proto3" json:"logs,omitempty"`
-	Ret        []byte `protobuf:"bytes,3,opt,name=ret,proto3" json:"ret,omitempty"`
-	VMError    string `protobuf:"bytes,4,opt,name=vm_error,json=vmError,proto3" json:"vm_error,omitempty"`
-	GasUsed    uint64 `protobuf:"varint,5,opt,name=gas_used,json=gasUsed,proto3" json:"gas_used,omitempty"`
-	MaxUsedGas uint64 `protobuf:"varint,6,opt,name=max_used_gas,json=maxUsedGas,proto3" json:"max_used_gas,omitempty"`
-}
-
-func (*LegacyMsgEthereumTxResponse) Reset()         {}
-func (*LegacyMsgEthereumTxResponse) String() string { return "" }
-func (*LegacyMsgEthereumTxResponse) ProtoMessage()  {}
-
 // DecodeTxResponses decodes a protobuf-encoded byte slice into TxResponses
 func DecodeTxResponses(in []byte) ([]*MsgEthereumTxResponse, error) {
 	if in == nil {
@@ -76,8 +61,8 @@ func DecodeTxResponses(in []byte) ([]*MsgEthereumTxResponse, error) {
 	}
 
 	if len(txMsgData.MsgResponses) == 0 {
-		// No EVM transactions in this block, return empty
-		return nil, nil
+		// No EVM transactions in this block, return empty slice
+		return []*MsgEthereumTxResponse{}, nil
 	}
 
 	responses := make([]*MsgEthereumTxResponse, 0, len(txMsgData.MsgResponses))
@@ -94,19 +79,35 @@ func DecodeTxResponses(in []byte) ([]*MsgEthereumTxResponse, error) {
 		err := proto.Unmarshal(res.Value, &response)
 		if err != nil {
 			// Fallback to legacy schema (without block_hash and block_timestamp fields)
-			var legacyResp LegacyMsgEthereumTxResponse
+			var legacyResp legacyevm.MsgEthereumTxResponse
 			if legacyErr := proto.Unmarshal(res.Value, &legacyResp); legacyErr != nil {
 				return nil, errorsmod.Wrap(err, "failed to unmarshal tx response message data")
 			}
+			// Convert legacy response logs to current []*Log type
+			convertedLogs := make([]*Log, 0, len(legacyResp.Logs))
+			for _, legacyLog := range legacyResp.Logs {
+				if legacyLog == nil {
+					continue
+				}
+				convertedLogs = append(convertedLogs, &Log{
+					Address:     legacyLog.Address,
+					Topics:      legacyLog.Topics,
+					Data:        legacyLog.Data,
+					BlockNumber: legacyLog.BlockNumber,
+					TxHash:      legacyLog.TxHash,
+					TxIndex:     legacyLog.TxIndex,
+					BlockHash:   legacyLog.BlockHash,
+					Index:       legacyLog.Index,
+					Removed:     legacyLog.Removed,
+				})
+			}
 			// Convert legacy response to current format
 			response = MsgEthereumTxResponse{
-				Hash:       legacyResp.Hash,
-				Logs:       legacyResp.Logs,
-				Ret:        legacyResp.Ret,
-				VmError:    legacyResp.VMError,
-				GasUsed:    legacyResp.GasUsed,
-				MaxUsedGas: legacyResp.MaxUsedGas,
-				// BlockHash and BlockTimestamp will be filled later by logsFromTxResponse
+				Hash:    legacyResp.Hash,
+				Logs:    convertedLogs,
+				Ret:     legacyResp.Ret,
+				VmError: legacyResp.VmError,
+				GasUsed: legacyResp.GasUsed,
 			}
 		}
 		responses = append(responses, &response)

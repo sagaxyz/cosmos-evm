@@ -835,7 +835,7 @@ func (m *TraceConfig) GetTracerJsonConfig() string {
 
 func init() {
 	// NOTE: Proto registration disabled to avoid conflicts with main package
-	// This package only needs struct definitions for unmarshaling legacy Evmos v0.13 data
+	// This package only needs struct definitions for unmarshaling legacy Evmos data
 	// proto.RegisterEnum("ethermint.evm.v1.AccessType", AccessType_name, AccessType_value)
 	// proto.RegisterType((*Params)(nil), "ethermint.evm.v1.Params")
 	// proto.RegisterType((*AccessControl)(nil), "ethermint.evm.v1.AccessControl")

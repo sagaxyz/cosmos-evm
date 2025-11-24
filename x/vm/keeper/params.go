@@ -10,26 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/utils"
+	legacyevm "github.com/cosmos/evm/x/vm/evmos"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
-
-// LegacyParams defines the EVM module parameters from evmos v0.13 format.
-// Used for backward compatibility with pre-v0.14 state.
-type LegacyParams struct {
-	EvmDenom                string              `protobuf:"bytes,1,opt,name=evm_denom,json=evmDenom,proto3" json:"evm_denom,omitempty"`
-	ExtraEIPs               []string            `protobuf:"bytes,4,rep,name=extra_eips,json=extraEips,proto3" json:"extra_eips,omitempty"`
-	ChainConfig             types.ChainConfig   `protobuf:"bytes,5,opt,name=chain_config,json=chainConfig,proto3" json:"chain_config"`
-	AllowUnprotectedTxs     bool                `protobuf:"varint,6,opt,name=allow_unprotected_txs,json=allowUnprotectedTxs,proto3" json:"allow_unprotected_txs,omitempty"`
-	EVMChannels             []string            `protobuf:"bytes,8,rep,name=evm_channels,json=evmChannels,proto3" json:"evm_channels,omitempty"`
-	AccessControl           types.AccessControl `protobuf:"bytes,9,opt,name=access_control,json=accessControl,proto3" json:"access_control"`
-	ActiveStaticPrecompiles []string            `protobuf:"bytes,10,rep,name=active_static_precompiles,json=activeStaticPrecompiles,proto3" json:"active_static_precompiles,omitempty"`
-}
-
-func (*LegacyParams) Reset()         {}
-func (*LegacyParams) String() string { return "" }
-func (*LegacyParams) ProtoMessage()  {}
 
 // GetParams returns the total set of evm parameters.
 func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
@@ -44,8 +29,8 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 		return params
 	}
 
-	// Fallback to legacy format (pre-v0.14, evmos-originated)
-	var legacyParams LegacyParams
+	// Fallback to legacy format (evmos-originated)
+	var legacyParams legacyevm.Params
 	if legacyErr := k.cdc.Unmarshal(bz, &legacyParams); legacyErr != nil {
 		// Both formats failed - log the error and return default params
 		// This can happen with very old data formats or corrupted state
@@ -72,11 +57,23 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 		extraEIPs = append(extraEIPs, eipInt)
 	}
 
+	// Convert legacy AccessControl to current format
+	accessControl := types.AccessControl{
+		Create: types.AccessControlType{
+			AccessType:        types.AccessType(legacyParams.AccessControl.Create.AccessType),
+			AccessControlList: legacyParams.AccessControl.Create.AccessControlList,
+		},
+		Call: types.AccessControlType{
+			AccessType:        types.AccessType(legacyParams.AccessControl.Call.AccessType),
+			AccessControlList: legacyParams.AccessControl.Call.AccessControlList,
+		},
+	}
+
 	params = types.Params{
 		EvmDenom:                legacyParams.EvmDenom,
 		ExtraEIPs:               extraEIPs,
 		EVMChannels:             legacyParams.EVMChannels,
-		AccessControl:           legacyParams.AccessControl,
+		AccessControl:           accessControl,
 		ActiveStaticPrecompiles: legacyParams.ActiveStaticPrecompiles,
 		HistoryServeWindow:      types.DefaultHistoryServeWindow,
 		ExtendedDenomOptions:    &types.ExtendedDenomOptions{ExtendedDenom: legacyParams.EvmDenom},

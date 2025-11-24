@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 )
 
-// RegisterLegacyInterfaces registers the legacy Evmos v0.13 interfaces
+// RegisterLegacyInterfaces registers the legacy Evmos interfaces
 // This is needed to decode historical transactions that use the ethermint.evm.v1 namespace
 func RegisterLegacyInterfaces(registry codectypes.InterfaceRegistry) {
 	// Register extension option

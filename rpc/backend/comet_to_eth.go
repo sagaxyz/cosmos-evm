@@ -106,7 +106,6 @@ func (b *Backend) EthMsgsFromCometBlock(
 		decodedTx, err := b.ClientCtx.TxConfig.TxDecoder()(tx)
 		if err != nil {
 			// Try legacy format
-			b.Logger.Debug("decoding failed for current format, trying legacy", "error", err.Error())
 			decodedTx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), tx)
 			if err != nil {
 				b.Logger.Debug("failed to decode transaction in block", "height", block.Height, "error", err.Error())

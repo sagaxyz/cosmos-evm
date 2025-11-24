@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"reflect"
 
@@ -64,29 +63,21 @@ func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
 		// In pre-migration state, code hash was stored in the EthAccount type, not separately
 		cosmosAddr := sdk.AccAddress(addr.Bytes())
 		if acc := k.accountKeeper.GetAccount(ctx, cosmosAddr); acc != nil {
-			ctx.Logger().Debug("GetCodeHash fallback: found account", "address", addr.Hex(), "type", fmt.Sprintf("%T", acc))
-
 			// Use reflection to extract CodeHash field from legacy EthAccount
 			accValue := reflect.ValueOf(acc)
 			if accValue.Kind() == reflect.Ptr {
 				accValue = accValue.Elem()
 			}
-
 			codeHashField := accValue.FieldByName("CodeHash")
 			if codeHashField.IsValid() && codeHashField.Kind() == reflect.String {
 				codeHash := codeHashField.String()
-				ctx.Logger().Debug("GetCodeHash fallback: extracted code hash via reflection", "address", addr.Hex(), "codeHash", codeHash)
 				if codeHash != "" {
 					codeHashBytes := common.HexToHash(codeHash).Bytes()
 					if !types.IsEmptyCodeHash(codeHashBytes) {
 						return common.BytesToHash(codeHashBytes)
 					}
 				}
-			} else {
-				ctx.Logger().Debug("GetCodeHash fallback: CodeHash field not found or invalid", "address", addr.Hex())
 			}
-		} else {
-			ctx.Logger().Debug("GetCodeHash fallback: no account found", "address", addr.Hex())
 		}
 		return common.BytesToHash(types.EmptyCodeHash)
 	}

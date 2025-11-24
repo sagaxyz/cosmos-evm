@@ -117,25 +117,18 @@ func (k Keeper) GetNativePrecompiles(ctx sdk.Context) []string {
 func (k Keeper) IsNativePrecompileAvailable(ctx sdk.Context, precompile common.Address) bool {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixNativePrecompiles)
 	found := store.Has([]byte(precompile.Hex()))
-
 	if !found {
 		// Fallback: check legacy format from pre-migration state
-		// In Evmos v0.13, precompiles were stored as concatenated hex strings in params
+		// In Evmos, precompiles were stored as concatenated hex strings in params
 		legacyStore := ctx.KVStore(k.storeKey)
 		if oldData := legacyStore.Get([]byte("NativePrecompiles")); len(oldData) > 0 {
-			ctx.Logger().Debug("IsNativePrecompileAvailable: checking legacy format",
-				"address", precompile.Hex())
-
 			const addressLength = 42 // "0x" + 40 hex characters
 			targetAddr := precompile.Hex()
-
 			// Check if the address exists in the concatenated string
 			for i := 0; i < len(oldData); i += addressLength {
 				if i+addressLength <= len(oldData) {
 					legacyAddr := string(oldData[i : i+addressLength])
 					if legacyAddr == targetAddr {
-						ctx.Logger().Debug("IsNativePrecompileAvailable: found in legacy format",
-							"address", precompile.Hex())
 						return true
 					}
 				}
@@ -184,25 +177,18 @@ func (k Keeper) GetDynamicPrecompiles(ctx sdk.Context) []string {
 func (k Keeper) IsDynamicPrecompileAvailable(ctx sdk.Context, precompile common.Address) bool {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixDynamicPrecompiles)
 	found := store.Has([]byte(precompile.Hex()))
-
 	if !found {
 		// Fallback: check legacy format from pre-migration state
-		// In Evmos v0.13, precompiles were stored as concatenated hex strings in params
+		// In Evmos, precompiles were stored as concatenated hex strings in params
 		legacyStore := ctx.KVStore(k.storeKey)
 		if oldData := legacyStore.Get([]byte("DynamicPrecompiles")); len(oldData) > 0 {
-			ctx.Logger().Debug("IsDynamicPrecompileAvailable: checking legacy format",
-				"address", precompile.Hex())
-
 			const addressLength = 42 // "0x" + 40 hex characters
 			targetAddr := precompile.Hex()
-
 			// Check if the address exists in the concatenated string
 			for i := 0; i < len(oldData); i += addressLength {
 				if i+addressLength <= len(oldData) {
 					legacyAddr := string(oldData[i : i+addressLength])
 					if legacyAddr == targetAddr {
-						ctx.Logger().Debug("IsDynamicPrecompileAvailable: found in legacy format",
-							"address", precompile.Hex())
 						return true
 					}
 				}

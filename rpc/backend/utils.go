@@ -243,7 +243,6 @@ func (b *Backend) ProcessBlock(
 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(cometTx)
 		if err != nil {
 			// Try legacy format
-			b.Logger.Debug("decoding failed for current format, trying legacy", "error", err.Error())
 			tx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), cometTx)
 			if err != nil {
 				b.Logger.Debug("failed to decode transaction in block", "height", blockHeight, "error", err.Error())

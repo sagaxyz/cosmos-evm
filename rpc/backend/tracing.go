@@ -181,7 +181,6 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		tx, err := baseTxDecoder(txBytes)
 		if err != nil {
 			// Try legacy format - use the same decodeLegacyTx from tx_info.go
-			b.Logger.Debug("decoding failed for current format, trying legacy", "error", err.Error())
 			return decodeLegacyTx(baseTxDecoder, txBytes)
 		}
 		return tx, nil

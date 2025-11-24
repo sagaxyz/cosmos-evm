@@ -609,14 +609,6 @@ func (b *Backend) initAccessListTracer(args evmtypes.TransactionArgs, blockNum r
 }
 
 // decodeLegacyTx attempts to decode a legacy evmos transaction and convert it to current format
-// Legacy evmos transactions use a different MsgEthereumTx structure:
-// - Field 1: google.protobuf.Any data
-// - Field 2: double size
-// - Field 3: string hash
-// - Field 4: string from
-// Current format uses:
-// - Field 5: bytes from
-// - Field 6: EthereumTx raw
 func decodeLegacyTx(cdc sdk.TxDecoder, txBytes []byte) (sdk.Tx, error) {
 	legacyTypeURL := []byte("/ethermint.evm.v1.MsgEthereumTx")
 
@@ -651,22 +643,13 @@ func decodeLegacyTx(cdc sdk.TxDecoder, txBytes []byte) (sdk.Tx, error) {
 	for i, anyMsg := range cosmosTx.Body.Messages {
 		if anyMsg.TypeUrl == "/ethermint.evm.v1.MsgEthereumTx" {
 			// Unmarshal as legacy MsgEthereumTx using proto.Unmarshal
-			// This works because SagaOS has the ethermint proto types registered
 			var evmosMsg evmoslegacy.MsgEthereumTx
 			if err := proto.Unmarshal(anyMsg.Value, &evmosMsg); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal legacy msg: %w", err)
 			}
 
-			// Convert to our LegacyMsgEthereumTx wrapper
-			legacyMsg := &evmtypes.LegacyMsgEthereumTx{
-				Data: evmosMsg.Data,
-				Size: evmosMsg.Size_,
-				Hash: evmosMsg.Hash,
-				From: evmosMsg.From,
-			}
-
 			// Convert to current format
-			currentMsg, err := legacyMsg.ConvertToCurrentFormat()
+			currentMsg, err := convertToCurrentFormat(&evmosMsg)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert legacy msg: %w", err)
 			}
@@ -699,4 +682,91 @@ func decodeLegacyTx(cdc sdk.TxDecoder, txBytes []byte) (sdk.Tx, error) {
 
 	// Decode the converted transaction with the standard codec
 	return cdc(convertedTxBytes)
+}
+
+// convertToCurrentFormat converts a legacy evmos MsgEthereumTx to the current cosmos-evm format
+// It extracts the ethereum transaction from the Any field and converts it
+func convertToCurrentFormat(m *evmoslegacy.MsgEthereumTx) (*evmtypes.MsgEthereumTx, error) {
+	if m == nil {
+		return nil, fmt.Errorf("legacy tx is nil")
+	}
+
+	// Convert from address (hex string to bytes)
+	var fromBytes []byte
+	if m.From != "" {
+		fromBytes = common.HexToAddress(m.From).Bytes()
+	}
+
+	// Try to extract the ethereum transaction from the Data Any field
+	var ethTx *ethtypes.Transaction
+	if m.Data != nil && m.Data.Value != nil {
+		// Try to parse as RLP-encoded transaction
+		// The Any.Value should contain the protobuf-encoded transaction data
+		// We'll attempt to extract and convert it to go-ethereum format
+		var err error
+		ethTx, err = decodeEvmosTxData(m.Data)
+		if err != nil {
+			// If we can't decode, we'll just use the from address
+			// The transaction can still be looked up by hash
+			ethTx = nil
+		}
+	}
+
+	currentMsg := &evmtypes.MsgEthereumTx{
+		From: fromBytes,
+		Raw:  evmtypes.EthereumTx{Transaction: ethTx},
+	}
+
+	return currentMsg, nil
+}
+
+// decodeEvmosTxData attempts to decode the evmos TxData from an Any field
+// and convert it to a go-ethereum Transaction
+func decodeEvmosTxData(any *codectypes.Any) (*ethtypes.Transaction, error) {
+	if any == nil || any.Value == nil {
+		return nil, fmt.Errorf("any is nil or empty")
+	}
+
+	// The Any.TypeUrl tells us which type of transaction this is
+	// /ethermint.evm.v1.LegacyTx
+	// /ethermint.evm.v1.AccessListTx
+	// /ethermint.evm.v1.DynamicFeeTx
+
+	switch any.TypeUrl {
+	case "/ethermint.evm.v1.LegacyTx":
+		return decodeLegacyTxData(any.Value)
+	case "/ethermint.evm.v1.AccessListTx":
+		return decodeAccessListTxData(any.Value)
+	case "/ethermint.evm.v1.DynamicFeeTx":
+		return decodeDynamicFeeTxData(any.Value)
+	default:
+		return nil, fmt.Errorf("unknown transaction type: %s", any.TypeUrl)
+	}
+}
+
+// decodeLegacyTxData decodes a legacy transaction from proto bytes
+func decodeLegacyTxData(data []byte) (*ethtypes.Transaction, error) {
+	var tx evmoslegacy.LegacyTx
+	if err := tx.Unmarshal(data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal legacy tx: %w", err)
+	}
+	return tx.ToEthereumTx(), nil
+}
+
+// decodeAccessListTxData decodes an access list transaction from proto bytes
+func decodeAccessListTxData(data []byte) (*ethtypes.Transaction, error) {
+	var tx evmoslegacy.AccessListTx
+	if err := tx.Unmarshal(data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal access list tx: %w", err)
+	}
+	return tx.ToEthereumTx(), nil
+}
+
+// decodeDynamicFeeTxData decodes a dynamic fee transaction from proto bytes
+func decodeDynamicFeeTxData(data []byte) (*ethtypes.Transaction, error) {
+	var tx evmoslegacy.DynamicFeeTx
+	if err := tx.Unmarshal(data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal dynamic fee tx: %w", err)
+	}
+	return tx.ToEthereumTx(), nil
 }
