@@ -114,7 +114,11 @@ func (b *Backend) PendingTransactions() ([]*sdk.Tx, error) {
 	for _, txBz := range res.Txs {
 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
 		if err != nil {
-			return nil, err
+			// Try legacy format
+			tx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), txBz)
+			if err != nil {
+				return nil, err
+			}
 		}
 		result = append(result, &tx)
 	}

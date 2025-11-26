@@ -17,7 +17,9 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	if bz == nil {
 		return types.DefaultParams()
 	}
+
 	k.cdc.MustUnmarshal(bz, &params)
+
 	return params
 }
 

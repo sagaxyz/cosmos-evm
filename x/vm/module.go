@@ -13,6 +13,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/x/vm/client/cli"
+	evmoslegacy "github.com/cosmos/evm/x/vm/evmos"
 	"github.com/cosmos/evm/x/vm/keeper"
 	"github.com/cosmos/evm/x/vm/types"
 
@@ -88,6 +89,8 @@ func (b AppModuleBasic) RegisterGRPCGatewayRoutes(c client.Context, serveMux *ru
 // RegisterInterfaces registers interfaces and implementations of the evm module.
 func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	types.RegisterInterfaces(registry)
+	// Register legacy Evmos types for historical transaction decoding
+	evmoslegacy.RegisterLegacyInterfaces(registry)
 }
 
 // GetTxCmd returns the root tx command for the erc20 module.

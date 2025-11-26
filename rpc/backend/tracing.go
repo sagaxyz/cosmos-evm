@@ -53,8 +53,12 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfi
 	for _, txBz := range blk.Block.Txs[:transaction.TxIndex] {
 		tx, err := b.ClientCtx.TxConfig.TxDecoder()(txBz)
 		if err != nil {
-			b.Logger.Debug("failed to decode transaction in block", "height", blk.Block.Height, "error", err.Error())
-			continue
+			// Try legacy format
+			tx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), txBz)
+			if err != nil {
+				b.Logger.Debug("failed to decode transaction in block", "height", blk.Block.Height, "error", err.Error())
+				continue
+			}
 		}
 		for _, msg := range tx.GetMsgs() {
 			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
@@ -68,8 +72,12 @@ func (b *Backend) TraceTransaction(hash common.Hash, config *rpctypes.TraceConfi
 
 	tx, err := b.ClientCtx.TxConfig.TxDecoder()(blk.Block.Txs[transaction.TxIndex])
 	if err != nil {
-		b.Logger.Debug("tx not found", "hash", hash)
-		return nil, err
+		// Try legacy format
+		tx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), blk.Block.Txs[transaction.TxIndex])
+		if err != nil {
+			b.Logger.Debug("tx not found", "hash", hash)
+			return nil, err
+		}
 	}
 
 	// add predecessor messages in current cosmos tx
@@ -165,7 +173,18 @@ func (b *Backend) TraceBlock(height rpctypes.BlockNumber,
 		b.Logger.Debug("block result not found", "height", block.Block.Height, "error", err.Error())
 		return nil, nil
 	}
-	txDecoder := b.ClientCtx.TxConfig.TxDecoder()
+
+	// Create a decoder wrapper that tries current format first, then legacy format
+	baseTxDecoder := b.ClientCtx.TxConfig.TxDecoder()
+	txDecoder := func(txBytes []byte) (sdk.Tx, error) {
+		// Try current format first
+		tx, err := baseTxDecoder(txBytes)
+		if err != nil {
+			// Try legacy format - use the same decodeLegacyTx from tx_info.go
+			return decodeLegacyTx(baseTxDecoder, txBytes)
+		}
+		return tx, nil
+	}
 
 	var txsMessages []*evmtypes.MsgEthereumTx
 	for i, tx := range txs {

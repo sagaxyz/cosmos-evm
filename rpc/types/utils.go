@@ -161,7 +161,15 @@ func NewTransactionFromMsg(
 	baseFee *big.Int,
 	config *ethparams.ChainConfig,
 ) *RPCTransaction {
-	return NewRPCTransaction(msg.AsTransaction(), blockHash, blockNumber, blockTime, index, baseFee, config)
+	tx := NewRPCTransaction(msg.AsTransaction(), blockHash, blockNumber, blockTime, index, baseFee, config)
+
+	// For legacy transactions where signature recovery might fail (e.g., when Raw.Transaction is nil),
+	// use the From field from MsgEthereumTx if the recovered address is zero
+	if tx.From == (common.Address{}) && len(msg.From) > 0 {
+		tx.From = common.BytesToAddress(msg.From)
+	}
+
+	return tx
 }
 
 // NewTransactionFromData returns a transaction that will serialize to the RPC
