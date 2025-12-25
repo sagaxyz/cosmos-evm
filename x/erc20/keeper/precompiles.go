@@ -117,7 +117,7 @@ func (k Keeper) GetNativePrecompiles(ctx sdk.Context) []string {
 func (k Keeper) IsNativePrecompileAvailable(ctx sdk.Context, precompile common.Address) bool {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixNativePrecompiles)
 	found := store.Has([]byte(precompile.Hex()))
-	if !found {
+	if !found && ctx.ExecMode() == sdk.ExecModeCheck && ctx.IsCheckTx() && len(ctx.TxBytes()) == 0 {
 		// Fallback: check legacy format from pre-migration state
 		// In Evmos, precompiles were stored as concatenated hex strings in params
 		legacyStore := ctx.KVStore(k.storeKey)
@@ -177,7 +177,7 @@ func (k Keeper) GetDynamicPrecompiles(ctx sdk.Context) []string {
 func (k Keeper) IsDynamicPrecompileAvailable(ctx sdk.Context, precompile common.Address) bool {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixDynamicPrecompiles)
 	found := store.Has([]byte(precompile.Hex()))
-	if !found {
+	if !found && ctx.ExecMode() == sdk.ExecModeCheck && ctx.IsCheckTx() && len(ctx.TxBytes()) == 0 {
 		// Fallback: check legacy format from pre-migration state
 		// In Evmos, precompiles were stored as concatenated hex strings in params
 		legacyStore := ctx.KVStore(k.storeKey)

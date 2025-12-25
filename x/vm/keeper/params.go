@@ -29,6 +29,12 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 		return params
 	}
 
+	// IMPORTANT: only perform legacy fallbacks for query contexts.
+	// During tx execution, accepting legacy formats can change state transitions.
+	if !(ctx.ExecMode() == sdk.ExecModeCheck && ctx.IsCheckTx() && len(ctx.TxBytes()) == 0) {
+		panic(fmt.Sprintf("failed to unmarshal EVM params in current format during non-query execution (mode=%d height=%d)", ctx.ExecMode(), ctx.BlockHeight()))
+	}
+
 	// Fallback to legacy format (evmos-originated)
 	var legacyParams legacyevm.Params
 	if legacyErr := k.cdc.Unmarshal(bz, &legacyParams); legacyErr != nil {
