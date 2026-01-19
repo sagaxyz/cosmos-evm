@@ -219,7 +219,16 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, fmt.Errorf("message at index %d is not MsgEthereumTx, got %T", res.MsgIndex, msgs[res.MsgIndex])
 	}
 
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, []*evmtypes.MsgEthereumTx{ethMsg})
+	// Construct EthMsgWithContext from indexed result data
+	msgsWithCtx := []EthMsgWithContext{{
+		Msg:        ethMsg,
+		TxIndex:    int(res.TxIndex),
+		MsgIndex:   int(res.MsgIndex),
+		EthTxIndex: res.EthTxIndex,
+		TxResult:   blockRes.TxsResults[res.TxIndex],
+	}}
+
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}

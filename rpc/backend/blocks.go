@@ -195,23 +195,23 @@ func (b *Backend) GetBlockReceipts(
 		return nil, fmt.Errorf("block result not found for height %d", resBlock.Block.Height)
 	}
 
-	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
+	msgsWithCtx := b.EthMsgsWithContextFromCometBlock(resBlock, blockRes)
 
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block: %w, ", err)
 	}
 
-	result := make([]map[string]interface{}, len(msgs))
-	for i, msg := range msgs {
+	result := make([]map[string]interface{}, len(msgsWithCtx))
+	for i, msgCtx := range msgsWithCtx {
 		var signer ethtypes.Signer
-		tx := msg.AsTransaction()
+		tx := msgCtx.Msg.AsTransaction()
 		if tx.Protected() {
 			signer = ethtypes.LatestSignerForChainID(tx.ChainId())
 		} else {
 			signer = ethtypes.FrontierSigner{}
 		}
-		from, err := msg.GetSenderLegacy(signer)
+		from, err := msgCtx.Msg.GetSenderLegacy(signer)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get sender: %w", err)
 		}
