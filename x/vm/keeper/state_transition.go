@@ -70,6 +70,14 @@ func (k *Keeper) NewEVMWithOverridePrecompiles(
 	evmHooks.AddCreateHooks(
 		accessControl.GetCreateHook(signer),
 	)
+	// Add external deployment checker hook if configured.
+	// This enables external modules (like saga-sdk ACL) to control contract deployments
+	// at the EVM opcode level, blocking both direct and indirect (nested) deployments.
+	if k.HasDeploymentChecker() {
+		evmHooks.AddCreateHooks(
+			k.GetDeploymentCheckerHook(ctx, signer),
+		)
+	}
 	evmHooks.AddCallHooks(
 		accessControl.GetCallHook(signer),
 	)
