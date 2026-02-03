@@ -477,8 +477,8 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			msg := buildMsgEthereumTx(t)
-			// Build EthMsgWithContext with block-local data (no longer depends on indexer)
-			msgsWithCtx := []EthMsgWithContext{
+			// Build EthMsgWithInfo with block-local data (no longer depends on indexer)
+			msgsWithInfo := []EthMsgWithInfo{
 				{
 					Msg:        msg,
 					TxIndex:    0,
@@ -489,7 +489,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			}
 			mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 			mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
-			receipts, err := backend.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithCtx)
+			receipts, err := backend.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithInfo)
 			require.NoError(t, err)
 			require.Len(t, receipts, 1)
 			actualTxIndex := receipts[0].TransactionIndex

@@ -82,9 +82,9 @@ func (b *Backend) BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, e
 	return big.NewInt(resHeader.Header.Height), nil
 }
 
-// EthMsgWithContext wraps an Ethereum message with its block-local context
+// EthMsgWithInfo wraps an Ethereum message with its block-local context
 // needed for building receipts without relying on the indexer.
-type EthMsgWithContext struct {
+type EthMsgWithInfo struct {
 	Msg        *evmtypes.MsgEthereumTx
 	TxIndex    int                // Cosmos tx index in the block
 	MsgIndex   int                // Message index within the Cosmos tx
@@ -113,8 +113,8 @@ func (b *Backend) EthMsgsFromCometBlock(
 func (b *Backend) EthMsgsWithContextFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-) []EthMsgWithContext {
-	var result []EthMsgWithContext
+) []EthMsgWithInfo {
+	var result []EthMsgWithInfo
 	block := resBlock.Block
 
 	txResults := blockRes.TxsResults
@@ -146,7 +146,7 @@ func (b *Backend) EthMsgsWithContextFromCometBlock(
 				continue
 			}
 
-			result = append(result, EthMsgWithContext{
+			result = append(result, EthMsgWithInfo{
 				Msg:        ethMsg,
 				TxIndex:    i,
 				MsgIndex:   msgIndex,
@@ -263,7 +263,7 @@ func (b *Backend) MinerFromCometBlock(
 func (b *Backend) ReceiptsFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-	msgsWithCtx []EthMsgWithContext,
+	msgsWithInfo []EthMsgWithInfo,
 ) ([]*ethtypes.Receipt, error) {
 	baseFee, err := b.BaseFee(blockRes)
 	if err != nil {
@@ -272,16 +272,16 @@ func (b *Backend) ReceiptsFromCometBlock(
 	}
 
 	blockHash := common.BytesToHash(resBlock.BlockID.Hash)
-	receipts := make([]*ethtypes.Receipt, len(msgsWithCtx))
+	receipts := make([]*ethtypes.Receipt, len(msgsWithInfo))
 	cumulatedGasUsed := uint64(0)
-	for i, msgCtx := range msgsWithCtx {
-		ethMsg := msgCtx.Msg
+	for i, msgInfo := range msgsWithInfo {
+		ethMsg := msgInfo.Msg
 
 		// Parse gas used and failed status from block-local tx result events.
 		// This avoids relying on the indexer, which can have stale data for duplicate tx hashes.
 		var gasUsed uint64
 		var failed bool
-		if msgCtx.TxResult.Code != 0 {
+		if msgInfo.TxResult.Code != 0 {
 			// Transaction failed - use gas limit as that's what's charged
 			gasUsed = ethMsg.GetGas()
 			failed = true
@@ -289,14 +289,15 @@ func (b *Backend) ReceiptsFromCometBlock(
 			// Parse from events to get actual gas used.
 			// For success case (Code == 0), ParseTxResult doesn't need the decoded tx,
 			// it only parses from the result events.
-			parsedTxs, err := rpctypes.ParseTxResult(msgCtx.TxResult, nil)
+			parsedTxs, err := rpctypes.ParseTxResult(msgInfo.TxResult, nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse tx result events: %w", err)
 			}
-			parsedTx := parsedTxs.GetTxByMsgIndex(msgCtx.MsgIndex)
+			parsedTx := parsedTxs.GetTxByMsgIndex(msgInfo.MsgIndex)
 			if parsedTx == nil {
-				// Fallback: use total gas from result (works for single-msg txs)
-				gasUsed = uint64(msgCtx.TxResult.GasUsed) // #nosec G115
+				// Fallback: use gas limit when events are missing (e.g., malformed historical blocks).
+				// This is an upper bound and avoids overcounting for multi-message txs.
+				gasUsed = ethMsg.GetGas()
 				failed = false
 			} else {
 				gasUsed = parsedTx.GasUsed
@@ -326,8 +327,8 @@ func (b *Backend) ReceiptsFromCometBlock(
 		}
 
 		logs, err := evmtypes.DecodeMsgLogs(
-			msgCtx.TxResult.Data,
-			msgCtx.MsgIndex,
+			msgInfo.TxResult.Data,
+			msgInfo.MsgIndex,
 			uint64(resBlock.Block.Height), // #nosec G115 -- checked for int overflow already
 		)
 		if err != nil {
@@ -357,7 +358,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 			// transaction corresponding to this receipt.
 			BlockHash:        blockHash,
 			BlockNumber:      big.NewInt(resBlock.Block.Height),
-			TransactionIndex: uint(msgCtx.EthTxIndex), // #nosec G115 -- checked for int overflow already
+			TransactionIndex: uint(msgInfo.EthTxIndex), // #nosec G115 -- checked for int overflow already
 		}
 
 		receipts[i] = receipt

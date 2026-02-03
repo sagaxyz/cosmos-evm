@@ -219,8 +219,13 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		return nil, fmt.Errorf("message at index %d is not MsgEthereumTx, got %T", res.MsgIndex, msgs[res.MsgIndex])
 	}
 
-	// Construct EthMsgWithContext from indexed result data
-	msgsWithCtx := []EthMsgWithContext{{
+	// Bounds check for TxIndex before accessing TxsResults
+	if int(res.TxIndex) >= len(blockRes.TxsResults) {
+		return nil, fmt.Errorf("tx index %d out of range (block has %d tx results)", res.TxIndex, len(blockRes.TxsResults))
+	}
+
+	// Construct EthMsgWithInfo from indexed result data
+	msgsWithInfo := []EthMsgWithInfo{{
 		Msg:        ethMsg,
 		TxIndex:    int(res.TxIndex),
 		MsgIndex:   int(res.MsgIndex),
@@ -228,7 +233,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		TxResult:   blockRes.TxsResults[res.TxIndex],
 	}}
 
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithCtx)
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block")
 	}
