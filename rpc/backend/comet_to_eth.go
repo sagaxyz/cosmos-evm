@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/pkg/errors"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	cmtrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	rpctypes "github.com/cosmos/evm/rpc/types"
@@ -81,6 +82,16 @@ func (b *Backend) BlockNumberFromCometByHash(blockHash common.Hash) (*big.Int, e
 	return big.NewInt(resHeader.Header.Height), nil
 }
 
+// EthMsgWithInfo wraps an Ethereum message with its block-local context
+// needed for building receipts without relying on the indexer.
+type EthMsgWithInfo struct {
+	Msg        *evmtypes.MsgEthereumTx
+	TxIndex    int                // Cosmos tx index in the block
+	MsgIndex   int                // Message index within the Cosmos tx
+	EthTxIndex int32              // Sequential Ethereum tx index in the block
+	TxResult   *abci.ExecTxResult // The execution result for this Cosmos tx
+}
+
 // EthMsgsFromCometBlock returns all real MsgEthereumTxs from a
 // CometBFT block. It also ensures consistency over the correct txs indexes
 // across RPC endpoints
@@ -88,10 +99,26 @@ func (b *Backend) EthMsgsFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
 ) []*evmtypes.MsgEthereumTx {
-	var result []*evmtypes.MsgEthereumTx
+	msgsWithCtx := b.EthMsgsWithContextFromCometBlock(resBlock, blockRes)
+	result := make([]*evmtypes.MsgEthereumTx, len(msgsWithCtx))
+	for i, msgCtx := range msgsWithCtx {
+		result[i] = msgCtx.Msg
+	}
+	return result
+}
+
+// EthMsgsWithContextFromCometBlock returns all real MsgEthereumTxs from a
+// CometBFT block along with their block-local context (tx index, msg index, etc.).
+// This allows building receipts without relying on the indexer.
+func (b *Backend) EthMsgsWithContextFromCometBlock(
+	resBlock *cmtrpctypes.ResultBlock,
+	blockRes *cmtrpctypes.ResultBlockResults,
+) []EthMsgWithInfo {
+	var result []EthMsgWithInfo
 	block := resBlock.Block
 
 	txResults := blockRes.TxsResults
+	var ethTxIndex int32
 
 	for i, tx := range block.Txs {
 		// Check if tx exists on EVM by cross checking with blockResults:
@@ -113,13 +140,20 @@ func (b *Backend) EthMsgsFromCometBlock(
 			}
 		}
 
-		for _, msg := range decodedTx.GetMsgs() {
+		for msgIndex, msg := range decodedTx.GetMsgs() {
 			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
 			if !ok {
 				continue
 			}
 
-			result = append(result, ethMsg)
+			result = append(result, EthMsgWithInfo{
+				Msg:        ethMsg,
+				TxIndex:    i,
+				MsgIndex:   msgIndex,
+				EthTxIndex: ethTxIndex,
+				TxResult:   txResults[i],
+			})
+			ethTxIndex++
 		}
 	}
 
@@ -157,11 +191,11 @@ func (b *Backend) EthBlockFromCometBlock(
 	// 4. create blockHeader without transactions, receipts, withdrawals, ...
 	ethHeader := rpctypes.MakeHeader(cmtBlock.Header, gasLimit, miner, baseFee)
 
-	// 5. get MsgEthereumTxs
-	msgs := b.EthMsgsFromCometBlock(resBlock, blockRes)
-	txs := make([]*ethtypes.Transaction, len(msgs))
-	for i, ethMsg := range msgs {
-		txs[i] = ethMsg.AsTransaction()
+	// 5. get MsgEthereumTxs with their block-local context
+	msgsWithCtx := b.EthMsgsWithContextFromCometBlock(resBlock, blockRes)
+	txs := make([]*ethtypes.Transaction, len(msgsWithCtx))
+	for i, msgCtx := range msgsWithCtx {
+		txs[i] = msgCtx.Msg.AsTransaction()
 	}
 
 	// 6. create ethBlock body with transactions
@@ -172,7 +206,7 @@ func (b *Backend) EthBlockFromCometBlock(
 	}
 
 	// 7. receipts
-	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	receipts, err := b.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipts from comet block: %w", err)
 	}
@@ -229,7 +263,7 @@ func (b *Backend) MinerFromCometBlock(
 func (b *Backend) ReceiptsFromCometBlock(
 	resBlock *cmtrpctypes.ResultBlock,
 	blockRes *cmtrpctypes.ResultBlockResults,
-	msgs []*evmtypes.MsgEthereumTx,
+	msgsWithInfo []EthMsgWithInfo,
 ) ([]*ethtypes.Receipt, error) {
 	baseFee, err := b.BaseFee(blockRes)
 	if err != nil {
@@ -238,15 +272,40 @@ func (b *Backend) ReceiptsFromCometBlock(
 	}
 
 	blockHash := common.BytesToHash(resBlock.BlockID.Hash)
-	receipts := make([]*ethtypes.Receipt, len(msgs))
+	receipts := make([]*ethtypes.Receipt, len(msgsWithInfo))
 	cumulatedGasUsed := uint64(0)
-	for i, ethMsg := range msgs {
-		txResult, err := b.GetTxByEthHash(ethMsg.Hash())
-		if err != nil {
-			return nil, fmt.Errorf("tx not found: hash=%s, error=%s", ethMsg.Hash(), err.Error())
+	for i, msgInfo := range msgsWithInfo {
+		ethMsg := msgInfo.Msg
+
+		// Parse gas used and failed status from block-local tx result events.
+		// This avoids relying on the indexer, which can have stale data for duplicate tx hashes.
+		var gasUsed uint64
+		var failed bool
+		if msgInfo.TxResult.Code != 0 {
+			// Transaction failed - use gas limit as that's what's charged
+			gasUsed = ethMsg.GetGas()
+			failed = true
+		} else {
+			// Parse from events to get actual gas used.
+			// For success case (Code == 0), ParseTxResult doesn't need the decoded tx,
+			// it only parses from the result events.
+			parsedTxs, err := rpctypes.ParseTxResult(msgInfo.TxResult, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse tx result events: %w", err)
+			}
+			parsedTx := parsedTxs.GetTxByMsgIndex(msgInfo.MsgIndex)
+			if parsedTx == nil {
+				// Fallback: use gas limit when events are missing (e.g., malformed historical blocks).
+				// This is an upper bound and avoids overcounting for multi-message txs.
+				gasUsed = ethMsg.GetGas()
+				failed = false
+			} else {
+				gasUsed = parsedTx.GasUsed
+				failed = parsedTx.Failed
+			}
 		}
 
-		cumulatedGasUsed += txResult.GasUsed
+		cumulatedGasUsed += gasUsed
 
 		var effectiveGasPrice *big.Int
 		if baseFee != nil {
@@ -256,7 +315,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 		}
 
 		var status uint64
-		if txResult.Failed {
+		if failed {
 			status = ethtypes.ReceiptStatusFailed
 		} else {
 			status = ethtypes.ReceiptStatusSuccessful
@@ -267,10 +326,9 @@ func (b *Backend) ReceiptsFromCometBlock(
 			contractAddress = crypto.CreateAddress(ethMsg.GetSender(), ethMsg.Raw.Nonce())
 		}
 
-		msgIndex := int(txResult.MsgIndex) // #nosec G115 -- checked for int overflow already
 		logs, err := evmtypes.DecodeMsgLogs(
-			blockRes.TxsResults[txResult.TxIndex].Data,
-			msgIndex,
+			msgInfo.TxResult.Data,
+			msgInfo.MsgIndex,
 			uint64(resBlock.Block.Height), // #nosec G115 -- checked for int overflow already
 		)
 		if err != nil {
@@ -291,7 +349,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 			// Implementation fields: These fields are added by geth when processing a transaction.
 			TxHash:            ethMsg.Hash(),
 			ContractAddress:   contractAddress,
-			GasUsed:           txResult.GasUsed,
+			GasUsed:           gasUsed,
 			EffectiveGasPrice: effectiveGasPrice,
 			BlobGasUsed:       uint64(0),     // TODO: fill this field
 			BlobGasPrice:      big.NewInt(0), // TODO: fill this field
@@ -300,7 +358,7 @@ func (b *Backend) ReceiptsFromCometBlock(
 			// transaction corresponding to this receipt.
 			BlockHash:        blockHash,
 			BlockNumber:      big.NewInt(resBlock.Block.Height),
-			TransactionIndex: uint(txResult.EthTxIndex), // #nosec G115 -- checked for int overflow already
+			TransactionIndex: uint(msgInfo.EthTxIndex), // #nosec G115 -- checked for int overflow already
 		}
 
 		receipts[i] = receipt
