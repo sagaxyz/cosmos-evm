@@ -61,6 +61,5 @@ type SlashingKeeper interface {
 type ERC20Keeper interface {
 	GetCoinAddress(ctx sdk.Context, denom string) (ethcommon.Address, error)
 	GetERC20Map(ctx sdk.Context, erc20 ethcommon.Address) []byte
-	GetTokenPairID(ctx sdk.Context, denom string) []byte
 	GetTokenPair(ctx sdk.Context, id []byte) (erc20types.TokenPair, bool)
 }
