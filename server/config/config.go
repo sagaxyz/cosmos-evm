@@ -49,7 +49,7 @@ const (
 	// DefaultJSONRPCWsAddress is the default address the JSON-RPC WebSocket server binds to.
 	DefaultJSONRPCWsAddress = "127.0.0.1:8546"
 
-	// DefaultJsonRPCMetricsAddress is the default address the JSON-RPC Metrics server binds to.
+	// DefaultJSONRPCMetricsAddress is the default address the JSON-RPC Metrics server binds to.
 	DefaultJSONRPCMetricsAddress = "127.0.0.1:6065"
 
 	// DefaultEVMTracer is the default vm.Tracer type
@@ -73,8 +73,8 @@ const (
 	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
 	DefaultGasCap uint64 = 25_000_000
 
-	// DefaultJSONRPCAllowInsecureUnlock is true
-	DefaultJSONRPCAllowInsecureUnlock bool = true
+	// DefaultJSONRPCAllowInsecureUnlock toggles if account unlocking is enabled when account-related RPCs are exposed by http.
+	DefaultJSONRPCAllowInsecureUnlock bool = false
 
 	// DefaultFilterCap is the default cap for total number of filters that can be created
 	DefaultFilterCap int32 = 200
@@ -100,7 +100,8 @@ const (
 	// DefaultHTTPIdleTimeout is the default idle timeout of the http json-rpc server
 	DefaultHTTPIdleTimeout = 120 * time.Second
 
-	// DefaultAllowUnprotectedTxs value is false
+	// DefaultAllowUnprotectedTxs restricts unprotected (non EIP155 signed) transactions to be submitted via
+	// the node's RPC when global parameter is disabled.
 	DefaultAllowUnprotectedTxs = false
 
 	// DefaultBatchRequestLimit is the default maximum batch request limit.
@@ -112,7 +113,7 @@ const (
 	DefaultBatchResponseMaxSize = 25 * 1000 * 1000
 
 	// DefaultMaxOpenConnections represents the amount of open connections (unlimited = 0)
-	DefaultMaxOpenConnections = 0
+	DefaultMaxOpenConnections = 1000
 
 	// DefaultGasAdjustment value to use as default in gas-adjustment flag
 	DefaultGasAdjustment = 1.2
