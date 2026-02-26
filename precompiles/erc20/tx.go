@@ -87,7 +87,8 @@ func (p *Precompile) transfer(
 	spenderAddr := contract.Caller()
 	newAllowance := big.NewInt(0)
 
-	if isTransferFrom {
+	// If the amount is zero, we don't need to update the allowance.
+	if isTransferFrom && coin.Amount.IsPositive() {
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
 			return nil, ConvertErrToERC20Error(err)
