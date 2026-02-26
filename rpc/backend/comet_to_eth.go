@@ -103,13 +103,17 @@ func (b *Backend) EthMsgsFromCometBlock(
 			continue
 		}
 
-		tx, err := b.ClientCtx.TxConfig.TxDecoder()(tx)
+		decodedTx, err := b.ClientCtx.TxConfig.TxDecoder()(tx)
 		if err != nil {
-			b.Logger.Debug("failed to decode transaction in block", "height", block.Height, "error", err.Error())
-			continue
+			// Try legacy format
+			decodedTx, err = decodeLegacyTx(b.ClientCtx.TxConfig.TxDecoder(), tx)
+			if err != nil {
+				b.Logger.Debug("failed to decode transaction in block", "height", block.Height, "error", err.Error())
+				continue
+			}
 		}
 
-		for _, msg := range tx.GetMsgs() {
+		for _, msg := range decodedTx.GetMsgs() {
 			ethMsg, ok := msg.(*evmtypes.MsgEthereumTx)
 			if !ok {
 				continue

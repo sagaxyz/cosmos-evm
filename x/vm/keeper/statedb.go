@@ -3,6 +3,7 @@ package keeper
 import (
 	"errors"
 	"math/big"
+	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
@@ -58,6 +59,26 @@ func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCodeHash)
 	bz := store.Get(addr.Bytes())
 	if len(bz) == 0 {
+		// Fallback: check if this is a historical query with legacy EthAccount format
+		// In pre-migration state, code hash was stored in the EthAccount type, not separately
+		cosmosAddr := sdk.AccAddress(addr.Bytes())
+		if acc := k.accountKeeper.GetAccount(ctx, cosmosAddr); acc != nil {
+			// Use reflection to extract CodeHash field from legacy EthAccount
+			accValue := reflect.ValueOf(acc)
+			if accValue.Kind() == reflect.Ptr {
+				accValue = accValue.Elem()
+			}
+			codeHashField := accValue.FieldByName("CodeHash")
+			if codeHashField.IsValid() && codeHashField.Kind() == reflect.String {
+				codeHash := codeHashField.String()
+				if codeHash != "" {
+					codeHashBytes := common.HexToHash(codeHash).Bytes()
+					if !types.IsEmptyCodeHash(codeHashBytes) {
+						return common.BytesToHash(codeHashBytes)
+					}
+				}
+			}
+		}
 		return common.BytesToHash(types.EmptyCodeHash)
 	}
 

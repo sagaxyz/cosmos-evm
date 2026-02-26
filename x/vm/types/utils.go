@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
+	legacyevm "github.com/cosmos/evm/x/vm/evmos"
 	"github.com/cosmos/gogoproto/proto"
 
 	errorsmod "cosmossdk.io/errors"
@@ -56,17 +57,58 @@ func DecodeTxResponses(in []byte) ([]*MsgEthereumTxResponse, error) {
 	}
 	var txMsgData sdk.TxMsgData
 	if err := proto.Unmarshal(in, &txMsgData); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal TxMsgData: %w", err)
 	}
+
+	if len(txMsgData.MsgResponses) == 0 {
+		// No EVM transactions in this block, return empty slice
+		return []*MsgEthereumTxResponse{}, nil
+	}
+
 	responses := make([]*MsgEthereumTxResponse, 0, len(txMsgData.MsgResponses))
 	for _, res := range txMsgData.MsgResponses {
 		var response MsgEthereumTxResponse
-		if res.TypeUrl != "/"+proto.MessageName(&response) {
+		currentTypeURL := "/" + proto.MessageName(&response)
+		legacyTypeURL := "/ethermint.evm.v1.MsgEthereumTxResponse"
+
+		// Check if this is an EVM tx response (current or legacy format)
+		if res.TypeUrl != currentTypeURL && res.TypeUrl != legacyTypeURL {
 			continue
 		}
+		// Try unmarshaling with current schema first
 		err := proto.Unmarshal(res.Value, &response)
 		if err != nil {
-			return nil, errorsmod.Wrap(err, "failed to unmarshal tx response message data")
+			// Fallback to legacy schema (without block_hash and block_timestamp fields)
+			var legacyResp legacyevm.MsgEthereumTxResponse
+			if legacyErr := proto.Unmarshal(res.Value, &legacyResp); legacyErr != nil {
+				return nil, errorsmod.Wrap(err, "failed to unmarshal tx response message data")
+			}
+			// Convert legacy response logs to current []*Log type
+			convertedLogs := make([]*Log, 0, len(legacyResp.Logs))
+			for _, legacyLog := range legacyResp.Logs {
+				if legacyLog == nil {
+					continue
+				}
+				convertedLogs = append(convertedLogs, &Log{
+					Address:     legacyLog.Address,
+					Topics:      legacyLog.Topics,
+					Data:        legacyLog.Data,
+					BlockNumber: legacyLog.BlockNumber,
+					TxHash:      legacyLog.TxHash,
+					TxIndex:     legacyLog.TxIndex,
+					BlockHash:   legacyLog.BlockHash,
+					Index:       legacyLog.Index,
+					Removed:     legacyLog.Removed,
+				})
+			}
+			// Convert legacy response to current format
+			response = MsgEthereumTxResponse{
+				Hash:    legacyResp.Hash,
+				Logs:    convertedLogs,
+				Ret:     legacyResp.Ret,
+				VmError: legacyResp.VmError,
+				GasUsed: legacyResp.GasUsed,
+			}
 		}
 		responses = append(responses, &response)
 	}
