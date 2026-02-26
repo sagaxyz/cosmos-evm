@@ -456,6 +456,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 			},
 		},
 	}
+
 	anyData := codectypes.UnsafePackAny(&evmtypes.MsgEthereumTxResponse{Hash: "hash"})
 	txMsgData := &sdk.TxMsgData{MsgResponses: []*codectypes.Any{anyData}}
 	encodingConfig := encoding.MakeConfig(constants.ExampleChainID.EVMChainID)
@@ -465,6 +466,7 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 		Height:     height,
 		TxsResults: []*abcitypes.ExecTxResult{{Code: 0, Data: encodedData}},
 	}
+
 	tcs := []struct {
 		name       string
 		ethTxIndex int32
@@ -474,30 +476,26 @@ func TestReceiptsFromCometBlock(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			msgs := []*evmtypes.MsgEthereumTx{
-				buildMsgEthereumTx(t),
-			}
-			expectedTxResult := &servertypes.TxResult{
-				Height:     height,
-				TxIndex:    0,
-				EthTxIndex: tc.ethTxIndex,
-				MsgIndex:   0,
-			}
-			mockIndexer := &MockIndexer{
-				txResults: map[common.Hash]*servertypes.TxResult{
-					msgs[0].Hash(): expectedTxResult,
+			msg := buildMsgEthereumTx(t)
+			// Build EthMsgWithInfo with block-local data (no longer depends on indexer)
+			msgsWithInfo := []EthMsgWithInfo{
+				{
+					Msg:        msg,
+					TxIndex:    0,
+					MsgIndex:   0,
+					EthTxIndex: tc.ethTxIndex,
+					TxResult:   blockRes.TxsResults[0],
 				},
 			}
-			backend.Indexer = mockIndexer
 			mockEVMQueryClient := backend.QueryClient.QueryClient.(*mocks.EVMQueryClient)
 			mockEVMQueryClient.On("BaseFee", mock.Anything, mock.Anything).Return(&evmtypes.QueryBaseFeeResponse{}, nil)
-			receipts, err := backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+			receipts, err := backend.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithInfo)
 			require.NoError(t, err)
 			require.Len(t, receipts, 1)
 			actualTxIndex := receipts[0].TransactionIndex
 			require.NotEqual(t, uint(0), actualTxIndex)
 			require.Equal(t, uint(tc.ethTxIndex), actualTxIndex) // #nosec G115
-			require.Equal(t, msgs[0].Hash(), receipts[0].TxHash)
+			require.Equal(t, msg.Hash(), receipts[0].TxHash)
 			require.Equal(t, big.NewInt(height), receipts[0].BlockNumber)
 			require.Equal(t, ethtypes.ReceiptStatusSuccessful, receipts[0].Status)
 		})
