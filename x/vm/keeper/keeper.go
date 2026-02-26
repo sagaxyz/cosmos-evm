@@ -82,6 +82,12 @@ type Keeper struct {
 	// if it is nil, the default comet mempool will be used
 	evmMempool *evmmempool.ExperimentalEVMMempool
 
+	// deploymentChecker is an optional external deployment checker
+	// that can be used by external modules (like saga-sdk ACL) to control
+	// contract deployments at the EVM opcode level (CREATE/CREATE2).
+	// This enables blocking both direct and indirect (nested) contract deployments.
+	deploymentChecker types.DeploymentChecker
+
 	// defaultEvmCoinInfo is the default EVM coin info used when evmCoinInfo is not initialized in the state,
 	// mainly for historical queries.
 	defaultEvmCoinInfo types.EvmCoinInfo
@@ -238,6 +244,19 @@ func (k *Keeper) PostTxProcessing(
 // HasHooks returns true if hooks are set
 func (k *Keeper) HasHooks() bool {
 	return k.hooks != nil
+}
+
+// GetDeploymentCheckerHook returns a CreateHook that uses the external deployment checker
+// to validate if the caller is allowed to deploy contracts.
+// This hook is used during EVM execution to enforce ACL rules for both direct
+// and indirect (nested) contract deployments.
+func (k *Keeper) GetDeploymentCheckerHook(ctx sdk.Context, signer common.Address) types.CreateHook {
+	return func(_ *vm.EVM, caller common.Address) error {
+		if k.deploymentChecker == nil {
+			return nil
+		}
+		return k.deploymentChecker.CanDeploy(ctx, signer, caller)
+	}
 }
 
 // ----------------------------------------------------------------------------
@@ -420,6 +439,29 @@ func (k *Keeper) SetEvmMempool(evmMempool *evmmempool.ExperimentalEVMMempool) {
 // GetEvmMempool returns the evm mempool
 func (k Keeper) GetEvmMempool() *evmmempool.ExperimentalEVMMempool {
 	return k.evmMempool
+}
+
+// SetDeploymentChecker sets the deployment checker for the EVM module.
+// The deployment checker is used by external modules (like saga-sdk ACL) to control
+// contract deployments at the EVM opcode level (CREATE/CREATE2).
+// This enables blocking both direct and indirect (nested) contract deployments.
+// Called only once during initialization, panics if called more than once.
+func (k *Keeper) SetDeploymentChecker(dc types.DeploymentChecker) *Keeper {
+	if k.deploymentChecker != nil {
+		panic("cannot set deployment checker twice")
+	}
+	k.deploymentChecker = dc
+	return k
+}
+
+// GetDeploymentChecker returns the deployment checker if set, nil otherwise.
+func (k *Keeper) GetDeploymentChecker() types.DeploymentChecker {
+	return k.deploymentChecker
+}
+
+// HasDeploymentChecker returns true if a deployment checker is set.
+func (k *Keeper) HasDeploymentChecker() bool {
+	return k.deploymentChecker != nil
 }
 
 // SetHeaderHash sets current block hash into EIP-2935 compatible storage contract.

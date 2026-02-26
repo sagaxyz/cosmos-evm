@@ -93,3 +93,14 @@ type BankWrapper interface {
 type ConsensusParamsKeeper interface {
 	Params(context.Context, *types.QueryParamsRequest) (*types.QueryParamsResponse, error)
 }
+
+// DeploymentChecker is the interface that allows external modules to check if
+// a deployment (CREATE or CREATE2) operation is allowed.
+// This enables integration with external ACL modules like saga-sdk's ACL module
+// for both direct and indirect (nested) contract deployments.
+type DeploymentChecker interface {
+	// CanDeploy checks if the given caller address is allowed to deploy contracts.
+	// The signer is the original transaction signer (EOA that signed the tx).
+	// The caller is the address initiating the deployment (can be a contract in nested calls).
+	CanDeploy(ctx sdk.Context, signer, caller common.Address) error
+}
