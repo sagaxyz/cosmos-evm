@@ -116,7 +116,27 @@ func (k Keeper) GetNativePrecompiles(ctx sdk.Context) []string {
 
 func (k Keeper) IsNativePrecompileAvailable(ctx sdk.Context, precompile common.Address) bool {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixNativePrecompiles)
-	return store.Has([]byte(precompile.Hex()))
+	found := store.Has([]byte(precompile.Hex()))
+	if !found {
+		// Fallback: check legacy format from pre-migration state
+		// In Evmos, precompiles were stored as concatenated hex strings in params
+		legacyStore := ctx.KVStore(k.storeKey)
+		if oldData := legacyStore.Get([]byte("NativePrecompiles")); len(oldData) > 0 {
+			const addressLength = 42 // "0x" + 40 hex characters
+			targetAddr := precompile.Hex()
+			// Check if the address exists in the concatenated string
+			for i := 0; i < len(oldData); i += addressLength {
+				if i+addressLength <= len(oldData) {
+					legacyAddr := string(oldData[i : i+addressLength])
+					if legacyAddr == targetAddr {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return found
 }
 
 func (k Keeper) SetNativePrecompile(ctx sdk.Context, precompile common.Address) {
@@ -156,7 +176,27 @@ func (k Keeper) GetDynamicPrecompiles(ctx sdk.Context) []string {
 
 func (k Keeper) IsDynamicPrecompileAvailable(ctx sdk.Context, precompile common.Address) bool {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixDynamicPrecompiles)
-	return store.Has([]byte(precompile.Hex()))
+	found := store.Has([]byte(precompile.Hex()))
+	if !found {
+		// Fallback: check legacy format from pre-migration state
+		// In Evmos, precompiles were stored as concatenated hex strings in params
+		legacyStore := ctx.KVStore(k.storeKey)
+		if oldData := legacyStore.Get([]byte("DynamicPrecompiles")); len(oldData) > 0 {
+			const addressLength = 42 // "0x" + 40 hex characters
+			targetAddr := precompile.Hex()
+			// Check if the address exists in the concatenated string
+			for i := 0; i < len(oldData); i += addressLength {
+				if i+addressLength <= len(oldData) {
+					legacyAddr := string(oldData[i : i+addressLength])
+					if legacyAddr == targetAddr {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return found
 }
 
 func (k Keeper) SetDynamicPrecompile(ctx sdk.Context, precompile common.Address) {

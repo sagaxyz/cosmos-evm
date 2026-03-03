@@ -12,6 +12,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"github.com/cosmos/evm/x/erc20/client/cli"
+	"github.com/cosmos/evm/x/erc20/evmos"
 	"github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
 
@@ -49,6 +50,7 @@ func (AppModuleBasic) Name() string {
 // RegisterLegacyAminoCodec performs a no-op as the erc20 doesn't support Amino encoding
 func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	types.RegisterLegacyAminoCodec(cdc)
+	evmos.RegisterLegacyAminoCodec(cdc)
 }
 
 // ConsensusVersion returns the consensus state-breaking version for the module.
@@ -59,6 +61,7 @@ func (AppModuleBasic) ConsensusVersion() uint64 {
 // RegisterInterfaces registers interfaces and implementations of the erc20 module.
 func (AppModuleBasic) RegisterInterfaces(interfaceRegistry codectypes.InterfaceRegistry) {
 	types.RegisterInterfaces(interfaceRegistry)
+	evmos.RegisterInterfaces(interfaceRegistry)
 }
 
 // DefaultGenesis returns default genesis state as raw bytes for the erc20

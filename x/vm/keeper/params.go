@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/cosmos/evm/utils"
+	legacyevm "github.com/cosmos/evm/x/vm/evmos"
 	"github.com/cosmos/evm/x/vm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -20,8 +23,63 @@ func (k Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 	if bz == nil {
 		return params
 	}
-	k.cdc.MustUnmarshal(bz, &params)
-	return
+
+	// Try new format (post-upgrade) first
+	if err := k.cdc.Unmarshal(bz, &params); err == nil {
+		return params
+	}
+
+	// Fallback to legacy format (evmos-originated)
+	var legacyParams legacyevm.Params
+	if legacyErr := k.cdc.Unmarshal(bz, &legacyParams); legacyErr != nil {
+		// Both formats failed - log the error and return default params
+		// This can happen with very old data formats or corrupted state
+		ctx.Logger().Error(
+			"failed to unmarshal params in both new and legacy format, using defaults",
+			"error", legacyErr,
+			"height", ctx.BlockHeight(),
+			"data_len", len(bz),
+		)
+		return types.DefaultParams()
+	}
+
+	// Convert legacy params to current format
+	// Convert ExtraEIPs from []string to []int64
+	extraEIPs := make([]int64, 0, len(legacyParams.ExtraEIPs))
+	for _, eipStr := range legacyParams.ExtraEIPs {
+		// evmos format: "ethereum_1234" or just "1234"
+		eipStr = strings.TrimPrefix(eipStr, "ethereum_")
+		eipInt, err := strconv.ParseInt(eipStr, 10, 64)
+		if err != nil {
+			ctx.Logger().Error("failed to parse EIP number, skipping", "eip", eipStr, "error", err)
+			continue
+		}
+		extraEIPs = append(extraEIPs, eipInt)
+	}
+
+	// Convert legacy AccessControl to current format
+	accessControl := types.AccessControl{
+		Create: types.AccessControlType{
+			AccessType:        types.AccessType(legacyParams.AccessControl.Create.AccessType),
+			AccessControlList: legacyParams.AccessControl.Create.AccessControlList,
+		},
+		Call: types.AccessControlType{
+			AccessType:        types.AccessType(legacyParams.AccessControl.Call.AccessType),
+			AccessControlList: legacyParams.AccessControl.Call.AccessControlList,
+		},
+	}
+
+	params = types.Params{
+		EvmDenom:                legacyParams.EvmDenom,
+		ExtraEIPs:               extraEIPs,
+		EVMChannels:             legacyParams.EVMChannels,
+		AccessControl:           accessControl,
+		ActiveStaticPrecompiles: legacyParams.ActiveStaticPrecompiles,
+		HistoryServeWindow:      types.DefaultHistoryServeWindow,
+		ExtendedDenomOptions:    &types.ExtendedDenomOptions{ExtendedDenom: legacyParams.EvmDenom},
+	}
+
+	return params
 }
 
 // SetParams sets the EVM params each in their individual key for better get performance

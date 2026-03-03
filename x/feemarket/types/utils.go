@@ -25,6 +25,17 @@ func CalcGasBaseFee(gasUsed, gasTarget, baseFeeChangeDenom uint64, baseFee, minU
 	}
 
 	// Otherwise if the parent block used less gas than its target, the baseFee should decrease.
-	// max(minGasPrice, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
-	return math.LegacyMaxDec(baseFee.Sub(num), minGasPrice)
+	floor := math.LegacyMaxDec(minGasPrice, minUnitGas)
+
+	// Replicate go-ethereum's integer truncation: when the delta is smaller than
+	// the minimum representable unit, treat it as zero AND snap the base fee to
+	// the nearest minUnitGas boundary. This makes the base fee stabilize at a
+	// clean value (e.g. 7 with denom=8) matching canonical EIP-1559 big.Int math.
+	if num.LT(minUnitGas) {
+		return math.LegacyMaxDec(
+			baseFee.Quo(minUnitGas).TruncateDec().Mul(minUnitGas),
+			floor,
+		)
+	}
+	return math.LegacyMaxDec(baseFee.Sub(num), floor)
 }

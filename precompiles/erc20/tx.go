@@ -3,11 +3,10 @@ package erc20
 import (
 	"math/big"
 
+	"cosmossdk.io/math"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-
-	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -74,19 +73,22 @@ func (p *Precompile) transfer(
 	from, to common.Address,
 	amount *big.Int,
 ) (data []byte, err error) {
-	coins := sdk.Coins{{Denom: p.tokenPair.Denom, Amount: math.NewIntFromBigInt(amount)}}
+	coin := sdk.Coin{Denom: p.tokenPair.Denom, Amount: math.NewIntFromBigInt(amount)}
 
-	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), coins)
-
-	if err = msg.Amount.Validate(); err != nil {
+	// use the sdk.Coin.Validate() instead of sdk.Coins.Validate(), as this one allows
+	// zero amounts but not negative amounts.
+	if err := coin.Validate(); err != nil {
 		return nil, err
 	}
+
+	msg := banktypes.NewMsgSend(from.Bytes(), to.Bytes(), sdk.Coins{coin})
 
 	isTransferFrom := method.Name == TransferFromMethod
 	spenderAddr := contract.Caller()
 	newAllowance := big.NewInt(0)
 
-	if isTransferFrom {
+	// If the amount is zero, we don't need to update the allowance.
+	if isTransferFrom && coin.Amount.IsPositive() {
 		prevAllowance, err := p.erc20Keeper.GetAllowance(ctx, p.Address(), from, spenderAddr)
 		if err != nil {
 			return nil, ConvertErrToERC20Error(err)
@@ -109,10 +111,13 @@ func (p *Precompile) transfer(
 		}
 	}
 
-	msgSrv := NewMsgServerImpl(p.BankKeeper)
-	if err = msgSrv.Send(ctx, msg); err != nil {
-		// This should return an error to avoid the contract from being executed and an event being emitted
-		return nil, ConvertErrToERC20Error(err)
+	// Cosmos' Bank keeper doesn't allow zero amounts, IsPositive() checks for zero and negative amounts.
+	if coin.Amount.IsPositive() {
+		msgSrv := NewMsgServerImpl(p.BankKeeper)
+		if err = msgSrv.Send(ctx, msg); err != nil {
+			// This should return an error to avoid the contract from being executed and an event being emitted
+			return nil, ConvertErrToERC20Error(err)
+		}
 	}
 
 	if err = p.EmitTransferEvent(ctx, stateDB, from, to, amount); err != nil {

@@ -207,8 +207,24 @@ func (s *TestSuite) buildEthBlock(
 		txs[i] = m.AsTransaction()
 	}
 
-	// 5) Build receipts
-	receipts, err := s.backend.ReceiptsFromCometBlock(resBlock, blockRes, msgs)
+	// 5) Build receipts - construct EthMsgWithInfo from msgs and block results
+	msgsWithInfo := make([]rpcbackend.EthMsgWithInfo, len(msgs))
+	for i, m := range msgs {
+		var txResult *abci.ExecTxResult
+		if i < len(blockRes.TxsResults) {
+			txResult = blockRes.TxsResults[i]
+		} else {
+			txResult = &abci.ExecTxResult{Code: 0}
+		}
+		msgsWithInfo[i] = rpcbackend.EthMsgWithInfo{
+			Msg:        m,
+			TxIndex:    i,
+			MsgIndex:   0,
+			EthTxIndex: int32(i), //nolint:gosec // test code with small slice, no overflow risk
+			TxResult:   txResult,
+		}
+	}
+	receipts, err := s.backend.ReceiptsFromCometBlock(resBlock, blockRes, msgsWithInfo)
 	s.Require().NoError(err)
 
 	// 6) Gas used

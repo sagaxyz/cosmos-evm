@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core"
@@ -33,8 +34,19 @@ func (k *Keeper) GetEthIntrinsicGas(ctx sdk.Context, msg core.Message, cfg *para
 // returned by the EVM execution, thus ignoring the previous intrinsic gas consumed during in the
 // AnteHandler.
 func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64, denom string) error {
+	// Overwrite gas price when fee payer is used
+	gasPrice := msg.GasPrice
+	v := ctx.Value("gas-price")
+	if v != nil {
+		var ok bool
+		gasPrice, ok = v.(*big.Int)
+		if !ok {
+			panic(fmt.Sprintf("incorrect gas-price type: %T", v))
+		}
+	}
+
 	// Return EVM tokens for remaining gas, exchanged at the original rate.
-	remaining := new(big.Int).Mul(new(big.Int).SetUint64(leftoverGas), msg.GasPrice)
+	remaining := new(big.Int).Mul(new(big.Int).SetUint64(leftoverGas), gasPrice)
 
 	switch remaining.Sign() {
 	case -1:
@@ -44,8 +56,21 @@ func (k *Keeper) RefundGas(ctx sdk.Context, msg core.Message, leftoverGas uint64
 		// positive amount refund
 		refundedCoins := sdk.Coins{sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(remaining))}
 
-		// refund to sender from the fee collector module account, which is the escrow account in charge of collecting tx fees
-		err := k.bankWrapper.SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, msg.From.Bytes(), refundedCoins)
+		// try to use tx fee payer to refund the correct account
+		var feePayer []byte
+		v := ctx.Value("fee-payer")
+		if v != nil {
+			acc, ok := v.(sdk.AccAddress)
+			if !ok {
+				panic(fmt.Sprintf("incorrect fee-payer type: %T", v))
+			}
+			feePayer = acc.Bytes()
+		} else {
+			feePayer = msg.From.Bytes()
+		}
+
+		// refund to fee payer from the fee collector module account, which is the escrow account in charge of collecting tx fees
+		err := k.bankWrapper.SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, feePayer, refundedCoins)
 		if err != nil {
 			err = errorsmod.Wrapf(errortypes.ErrInsufficientFunds, "fee collector account failed to refund fees: %s", err.Error())
 			return errorsmod.Wrapf(err, "failed to refund %d leftover gas (%s)", leftoverGas, refundedCoins.String())
