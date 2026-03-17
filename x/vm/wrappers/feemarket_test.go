@@ -76,13 +76,53 @@ func TestGetBaseFee(t *testing.T) {
 			},
 		},
 		{
-			name:      "success - truncate decimals with number less than 1",
-			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
-			expResult: big.NewInt(0), // 0.000001 token in 18 decimals
+			name:      "success - fix legacy encoding, base fee 7 (18 decimals)",
+			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+			expResult: big.NewInt(7),
 			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
 				mfk.EXPECT().
 					GetBaseFee(gomock.Any()).
-					Return(sdkmath.LegacyNewDecWithPrec(1, 13)) // multiplied by 1e12 is still less than 1
+					Return(sdkmath.LegacyNewDecWithPrec(7, 18)) // old math.Int "7" deserialized as LegacyDec → 7e-18
+			},
+		},
+		{
+			name:      "success - fix legacy encoding, base fee 100 (18 decimals)",
+			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+			expResult: big.NewInt(100),
+			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
+				mfk.EXPECT().
+					GetBaseFee(gomock.Any()).
+					Return(sdkmath.LegacyNewDecWithPrec(100, 18)) // old math.Int "100" → 100e-18
+			},
+		},
+		{
+			name:      "success - fix legacy encoding, base fee 1 gwei (18 decimals)",
+			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+			expResult: big.NewInt(1e9),
+			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
+				mfk.EXPECT().
+					GetBaseFee(gomock.Any()).
+					Return(sdkmath.LegacyNewDecWithPrec(1e9, 18)) // old math.Int "1000000000" → 1e-9
+			},
+		},
+		{
+			name:      "success - fix legacy encoding, base fee 1000 gwei (18 decimals)",
+			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.ExampleChainID],
+			expResult: big.NewInt(1e12),
+			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
+				mfk.EXPECT().
+					GetBaseFee(gomock.Any()).
+					Return(sdkmath.LegacyNewDecWithPrec(1e12, 18)) // old math.Int "1000000000000" → 1e-6
+			},
+		},
+		{
+			name:      "success - fix legacy encoding, base fee 7 (6 decimals)",
+			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			expResult: big.NewInt(7e12), // corrected to 7, then ×1e12 conversion factor
+			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
+				mfk.EXPECT().
+					GetBaseFee(gomock.Any()).
+					Return(sdkmath.LegacyNewDecWithPrec(7, 18))
 			},
 		},
 	}
