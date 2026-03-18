@@ -72,10 +72,17 @@ func (b *Backend) BaseFee(blockRes *cmtrpctypes.ResultBlockResults) (*big.Int, e
 		// faster to iterate reversely
 		for i := len(blockRes.FinalizeBlockEvents) - 1; i >= 0; i-- {
 			evt := blockRes.FinalizeBlockEvents[i]
-			if evt.Type == evmtypes.EventTypeFeeMarket && len(evt.Attributes) > 0 {
+			if (evt.Type == feemarkettypes.EventTypeFeeMarket || evt.Type == evmtypes.EventTypeFeeMarket) && len(evt.Attributes) > 0 {
 				baseFee, ok := sdkmath.NewIntFromString(evt.Attributes[0].Value)
 				if ok {
 					return baseFee.BigInt(), nil
+				}
+				// Pre-migration events use math.Int ("7"), post-migration
+				// events use LegacyDec ("7.000000000000000000"). The Int
+				// parser above handles the former; try LegacyDec for the latter.
+				dec, decErr := sdkmath.LegacyNewDecFromStr(evt.Attributes[0].Value)
+				if decErr == nil {
+					return dec.TruncateInt().BigInt(), nil
 				}
 				break
 			}

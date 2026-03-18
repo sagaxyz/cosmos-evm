@@ -68,13 +68,14 @@ func (d Decimals) Validate() error {
 
 // ConversionFactor returns the conversion factor between the Decimals value and
 // the 18 decimals representation, i.e. `EighteenDecimals`.
-//
-// NOTE: This function does not check if the Decimal instance is valid or
-// not and by default returns the conversion factor of 1, i.e. from 18 decimals
-// to 18 decimals. We cannot have a non supported Decimal since it is checked
-// and validated.
+// If the Decimals value is not in the supported range (1–18), it defaults to
+// the 18-decimal factor (1), which is safe for historical state queries where
+// EvmCoinInfo may not yet be stored.
 func (d Decimals) ConversionFactor() math.Int {
-	return ConversionFactor[d]
+	if f, ok := ConversionFactor[d]; ok {
+		return f
+	}
+	return ConversionFactor[EighteenDecimals]
 }
 
 func (d Decimals) Uint32() uint32 { return uint32(d) }
