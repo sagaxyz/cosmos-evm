@@ -72,7 +72,7 @@ func (b *Backend) BaseFee(blockRes *cmtrpctypes.ResultBlockResults) (*big.Int, e
 		// faster to iterate reversely
 		for i := len(blockRes.FinalizeBlockEvents) - 1; i >= 0; i-- {
 			evt := blockRes.FinalizeBlockEvents[i]
-			if evt.Type == evmtypes.EventTypeFeeMarket && len(evt.Attributes) > 0 {
+			if (evt.Type == feemarkettypes.EventTypeFeeMarket || evt.Type == evmtypes.EventTypeFeeMarket) && len(evt.Attributes) > 0 {
 				baseFee, ok := sdkmath.NewIntFromString(evt.Attributes[0].Value)
 				if ok {
 					return baseFee.BigInt(), nil
