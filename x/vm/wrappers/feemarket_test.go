@@ -125,6 +125,31 @@ func TestGetBaseFee(t *testing.T) {
 					Return(sdkmath.LegacyNewDecWithPrec(7, 18))
 			},
 		},
+		{
+			// Regression: a legitimate base fee on a low-decimal chain sits below
+			// 1.0 but at or above that chain's EIP-1559 floor of 1/ConversionFactor.
+			// It must NOT be treated as a legacy math.Int encoding. Comparing
+			// against a hardcoded 1.0 inflated these by 10^18.
+			name:      "success - legitimate sub-one base fee is untouched (6 decimals)",
+			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.SixDecimalsChainID],
+			expResult: big.NewInt(1), // 1e-12 is the floor, ×1e12 conversion factor = 1
+			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
+				mfk.EXPECT().
+					GetBaseFee(gomock.Any()).
+					Return(sdkmath.LegacyNewDecWithPrec(1, 12))
+			},
+		},
+		{
+			// Same, two decimals: floor is 1e-16.
+			name:      "success - legitimate sub-one base fee is untouched (2 decimals)",
+			coinInfo:  testconstants.ExampleChainCoinInfo[testconstants.TwoDecimalsChainID],
+			expResult: big.NewInt(1), // 1e-16 is the floor, ×1e16 conversion factor = 1
+			mockSetup: func(mfk *testutil.MockFeeMarketKeeper) {
+				mfk.EXPECT().
+					GetBaseFee(gomock.Any()).
+					Return(sdkmath.LegacyNewDecWithPrec(1, 16))
+			},
+		},
 	}
 
 	for _, tc := range testCases {

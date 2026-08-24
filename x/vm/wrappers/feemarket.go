@@ -23,17 +23,20 @@ var legacyDecPrecisionMultiplier = sdkmath.NewIntWithDecimal(1, sdkmath.LegacyPr
 // yielding a decimal value of N×10⁻¹⁸ instead of N.
 //
 // Detection: EIP-1559 enforces a floor of minUnitGas = 1/ConversionFactor on
-// the base fee. For 18-decimal chains (ConversionFactor=1) this floor is 1.0,
-// so any legitimate base fee is ≥ 1.0. A misinterpreted old Int N always
-// produces N×10⁻¹⁸ < 1.0 (for any N < 10^18, which covers all practical
-// base fees). The fix multiplies by 10^18 to restore the original value.
+// the base fee, so any legitimate base fee is >= that floor. A misinterpreted
+// old Int N produces N×10⁻¹⁸, which lands below the floor whenever
+// N < 10¹⁸/ConversionFactor -- true for all practical base fees. The fix
+// multiplies by 10¹⁸ to restore the original value.
 //
-// For chains with fewer decimals the floor is lower (e.g. 10⁻¹² for
-// 6-decimal chains), but the heuristic remains safe as long as the old
-// Int base fee was smaller than the chain's ConversionFactor — which holds
-// for all known Saga-based deployments where 18 decimals are used.
-func fixLegacyBaseFeeEncoding(baseFee sdkmath.LegacyDec) sdkmath.LegacyDec {
-	if baseFee.IsPositive() && baseFee.LT(sdkmath.LegacyOneDec()) {
+// The floor must be derived from the chain's decimals rather than hardcoded to
+// 1.0. On an 18-decimal chain ConversionFactor is 1 and the floor is exactly
+// 1.0, so this is identical to comparing against one. On a chain with fewer
+// decimals the legitimate floor is smaller (10⁻¹² for 6 decimals, 10⁻¹⁶ for 2),
+// and a hardcoded 1.0 would misclassify perfectly valid base fees as legacy
+// encodings and inflate them by 10¹⁸.
+func fixLegacyBaseFeeEncoding(baseFee sdkmath.LegacyDec, decimals types.Decimals) sdkmath.LegacyDec {
+	minUnitGas := sdkmath.LegacyOneDec().QuoInt(decimals.ConversionFactor())
+	if baseFee.IsPositive() && baseFee.LT(minUnitGas) {
 		return baseFee.MulInt(legacyDecPrecisionMultiplier)
 	}
 	return baseFee
@@ -66,7 +69,7 @@ func (w FeeMarketWrapper) GetBaseFee(ctx sdk.Context, decimals types.Decimals) *
 		return nil
 	}
 
-	baseFee = fixLegacyBaseFeeEncoding(baseFee)
+	baseFee = fixLegacyBaseFeeEncoding(baseFee, decimals)
 
 	return baseFee.MulInt(decimals.ConversionFactor()).TruncateInt().BigInt()
 }
@@ -84,7 +87,7 @@ func (w FeeMarketWrapper) CalculateBaseFee(ctx sdk.Context) *big.Int {
 func (w FeeMarketWrapper) GetParams(ctx sdk.Context) feemarkettypes.Params {
 	params := w.FeeMarketKeeper.GetParams(ctx)
 	if !params.BaseFee.IsNil() {
-		params.BaseFee = fixLegacyBaseFeeEncoding(params.BaseFee)
+		params.BaseFee = fixLegacyBaseFeeEncoding(params.BaseFee, types.GetEVMCoinDecimals())
 		params.BaseFee = types.ConvertAmountTo18DecimalsLegacy(params.BaseFee)
 	}
 	params.MinGasPrice = types.ConvertAmountTo18DecimalsLegacy(params.MinGasPrice)
