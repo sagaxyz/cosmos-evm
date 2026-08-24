@@ -321,7 +321,11 @@ func (suite *MiddlewareTestSuite) TestOnRecvPacketWithCallback() {
 					}
 				}`, contractAddr, 1_000_000, packedBytes)
 			},
-			expError: "ABCI code: 8",
+			// This fork permits zero-value ERC20 transfers (ERC-20 requires transfers of 0
+			// to be treated as normal transfers), so the callback is no longer rejected up
+			// front with ErrInvalidRequest (8). It now proceeds and the contract's own EVM
+			// call reverts, surfacing erc20types.ErrEVMCall (12) instead.
+			expError: "ABCI code: 12",
 		},
 
 		// FAILURE CASES - Gas Issues
