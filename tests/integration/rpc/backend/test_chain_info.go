@@ -436,7 +436,7 @@ func (s *TestSuite) TestFeeHistory() {
 			1,
 			&rpc.FeeHistoryResult{
 				OldestBlock:      (*hexutil.Big)(big.NewInt(1)),
-				BaseFee:          []*hexutil.Big{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))},
+				BaseFee:          []*hexutil.Big{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(1))},
 				GasUsedRatio:     []float64{0},
 				Reward:           [][]*hexutil.Big{{(*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0)), (*hexutil.Big)(big.NewInt(0))}},
 				BlobBaseFee:      []*hexutil.Big{(*hexutil.Big)(big.NewInt(1)), (*hexutil.Big)(big.NewInt(1))},

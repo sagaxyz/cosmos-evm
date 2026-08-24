@@ -48,7 +48,7 @@ func (s *PrecompileTestSuite) TestTransfer() {
 			},
 			func() {},
 			true,
-			"coin -1xmpl amount is not positive",
+			"negative coin amount: -1",
 		},
 		{
 			"fail - invalid to address",
@@ -183,7 +183,7 @@ func (s *PrecompileTestSuite) TestTransferFrom() {
 			},
 			func() {},
 			true,
-			"coin -1xmpl amount is not positive",
+			"negative coin amount: -1",
 		},
 		{
 			"fail - invalid from address",

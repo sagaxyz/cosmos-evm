@@ -129,7 +129,11 @@ func (s *TestSuite) TestGetTransactionByHash() {
 
 func (s *TestSuite) TestGetTransactionsByHashPending() {
 	msgEthereumTx, bz := s.buildEthereumTx()
-	rpcTransaction := rpctypes.NewRPCTransaction(msgEthereumTx.AsTransaction(), common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig())
+	// Use NewTransactionFromMsg (the constructor the backend actually uses) rather than
+	// NewRPCTransaction: for a pending tx the block number is zero, so signature recovery
+	// yields the zero address and only NewTransactionFromMsg falls back to
+	// MsgEthereumTx.From to report the real sender.
+	rpcTransaction := rpctypes.NewTransactionFromMsg(msgEthereumTx, common.Hash{}, 0, 0, 0, big.NewInt(1), s.backend.ChainConfig())
 
 	testCases := []struct {
 		name         string

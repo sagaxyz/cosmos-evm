@@ -123,6 +123,13 @@ func (s *KeeperIntegrationTestSuite) TestKeeperHiddenReserve() {
 	moduleAddr := authtypes.NewModuleAddress(types.ModuleName)
 	addr1 := sdk.AccAddress{1}
 
+	// Capture the reserve balance up front. Older versions relied on the network setup
+	// seeding 1 integer coin here, but upstream v0.6.2 stopped the EVM commit path from
+	// writing module account balances, so the starting balance is no longer guaranteed.
+	// Asserting relative to the observed starting balance keeps this correct either way.
+	reserveBefore := s.network.App.GetBankKeeper().
+		GetBalance(s.network.GetContext(), moduleAddr, types.IntegerCoinDenom()).Amount
+
 	// Make the reserve hold a non-zero balance
 	// Mint fractional coins to an account, which should cause a mint of 1
 	// integer coin to the reserve to back it.
@@ -138,10 +145,11 @@ func (s *KeeperIntegrationTestSuite) TestKeeperHiddenReserve() {
 
 	// Check underlying x/bank balance for reserve
 	reserveIntCoin := s.network.App.GetBankKeeper().GetBalance(s.network.GetContext(), moduleAddr, types.IntegerCoinDenom())
+	expReserve := reserveBefore.AddRaw(1)
 	s.Require().Equal(
-		sdkmath.NewInt(2), // Network setup creates 1, test mints 1 more = 2 total
+		expReserve,
 		reserveIntCoin.Amount,
-		"reserve should hold 2 integer coins (1 from network setup + 1 from test mint)",
+		"reserve should gain exactly 1 integer coin from the test mint",
 	)
 
 	tests := []struct {
@@ -160,7 +168,7 @@ func (s *KeeperIntegrationTestSuite) TestKeeperHiddenReserve() {
 			"reserve account - visible integer denom",
 			moduleAddr,
 			types.IntegerCoinDenom(),
-			sdkmath.NewInt(2), // Network setup creates 1, test mints 1 more = 2 total
+			expReserve,
 		},
 		{
 			"user account - visible extended denom",

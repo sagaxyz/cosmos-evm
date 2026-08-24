@@ -56,8 +56,11 @@ func (b *Backend) GetProof(address common.Address, storageKeys []string, blockNr
 		return nil, errors.New("header not found")
 	}
 
-	// if the height is equal to zero, meaning the query condition of the block is either "pending" or "latest"
-	if height == 0 {
+	// Resolve to the current height for any non-positive block number. The
+	// negative sentinels ("latest", "pending", "finalized", "safe", "earliest")
+	// are mapped to 0 by BlockNumber.Int64(), while an explicit block 0 is
+	// mapped to 1 -- a height at which IAVL cannot serve proofs.
+	if blockNum <= 0 {
 		bn, err := b.BlockNumber()
 		if err != nil {
 			return nil, err
